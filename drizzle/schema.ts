@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,56 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Books table - stores book information for each user
+ */
+export const books = mysqlTable(
+  "books",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    author: varchar("author", { length: 255 }).notNull(),
+    description: text("description"),
+    categoryId: int("categoryId"),
+    publishYear: int("publishYear"),
+    rating: int("rating").default(0), // 0-5 stars
+    readingStatus: mysqlEnum("readingStatus", [
+      "مقروء",
+      "قيد القراءة",
+      "لم يُقرأ",
+    ]).default("لم يُقرأ"),
+    coverImageUrl: text("coverImageUrl"), // URL to book cover image
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("userIdIdx").on(table.userId),
+    categoryIdIdx: index("categoryIdIdx").on(table.categoryId),
+  })
+);
+
+export type Book = typeof books.$inferSelect;
+export type InsertBook = typeof books.$inferInsert;
+
+/**
+ * Categories table - stores book categories
+ */
+export const categories = mysqlTable(
+  "categories",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    color: varchar("color", { length: 7 }).default("#3B82F6"), // Hex color
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("userIdIdx").on(table.userId),
+  })
+);
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;
