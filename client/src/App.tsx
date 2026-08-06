@@ -14,6 +14,7 @@ import AdvertisementManagement from "@/pages/AdvertisementManagement";
 import FeaturedListingManagement from "@/pages/FeaturedListingManagement";
 import Subscriptions from "@/pages/Subscriptions";
 import PaymentManagement from "@/pages/PaymentManagement";
+import PaymentTest from "@/pages/PaymentTest";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -34,6 +35,7 @@ function Router() {
       <Route path={"\u002ffeatured-listings"} component={FeaturedListingManagement} />
       <Route path={"\u002fsubscriptions"} component={Subscriptions} />
       <Route path={"\u002fpayments"} component={PaymentManagement} />
+      <Route path={"\u002fpayment-test"} component={PaymentTest} />
       <Route path={"\u002fadmin"} component={AdminDashboard} />
       {/* Final fallback route */}
       <Route component={NotFound} />
