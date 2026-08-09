@@ -14,6 +14,8 @@ export async function createListing(userId: number, data: {
   const db = requireDb(await getDb());
   const book = await db.select({ id: books.id }).from(books).where(eq(books.id, data.bookId)).limit(1);
   if (!book.length) throw new Error("الكتاب غير موجود");
+  if (data.type === "external_link" && !data.externalLink) throw new Error("الرابط الخارجي مطلوب لهذا النوع من الإعلانات");
+  if (data.type !== "external_link" && data.externalLink) throw new Error("الرابط الخارجي مسموح فقط للإعلانات الخارجية");
   const result = await db.insert(listings).values({
     userId, bookId: data.bookId, type: data.type, condition: data.condition ?? "new",
     price: data.price.toFixed(2), currency: data.currency, country: data.country,
@@ -101,13 +103,17 @@ export async function markNotificationRead(userId: number, notificationId: numbe
 export async function createRating(userId: number, data: { targetUserId: number; listingId?: number; rating: number; comment?: string }) {
   const db = requireDb(await getDb());
   if (userId === data.targetUserId) throw new Error("لا يمكنك تقييم نفسك");
+  if (data.rating < 1 || data.rating > 5 || !Number.isInteger(data.rating)) throw new Error("التقييم يجب أن يكون من 1 إلى 5");
   const target = await db.select({ id: users.id }).from(users).where(eq(users.id, data.targetUserId)).limit(1);
   if (!target.length) throw new Error("المستخدم غير موجود");
   if (data.listingId !== undefined) {
-    const listing = await db.select({ id: listings.id }).from(listings).where(eq(listings.id, data.listingId)).limit(1);
+    const listing = await db.select({ id: listings.id, userId: listings.userId }).from(listings).where(eq(listings.id, data.listingId)).limit(1);
     if (!listing.length) throw new Error("الإعلان غير موجود");
+    if (listing[0].userId !== data.targetUserId) throw new Error("الإعلان لا ينتمي إلى المستخدم الذي تريد تقييمه");
   }
-  const result = await db.insert(ratings).values({ userId, targetUserId: data.targetUserId, listingId: data.listingId ?? null, rating: data.rating, comment: data.comment ?? null });
+  const duplicate = await db.select({ id: ratings.id }).from(ratings).where(and(eq(ratings.userId, userId), eq(ratings.targetUserId, data.targetUserId), data.listingId !== undefined ? eq(ratings.listingId, data.listingId) : eq(ratings.targetUserId, data.targetUserId))).limit(1);
+  if (duplicate.length) throw new Error("لقد أضفت تقييمًا بالفعل لهذا الهدف");
+  const result = await db.insert(ratings).values({ userId, targetUserId: data.targetUserId, listingId: data.listingId ?? null, rating: data.rating, comment: data.comment?.trim() || null });
   return { success: true as const, ratingId: Number((result as any)[0]?.insertId) };
 }
 
