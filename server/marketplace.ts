@@ -1,5 +1,5 @@
 import { and, eq, or } from "drizzle-orm";
-import { books, conversations, favorites, follows, listings, messages, notifications, ratings, subscriptionPlans, subscriptions, users } from "../drizzle/schema";
+import { books, conversations, favorites, follows, listings, messages, notifications, ratings, reports, subscriptionPlans, subscriptions, users } from "../drizzle/schema";
 import { getDb } from "./db";
 
 function requireDb(db: Awaited<ReturnType<typeof getDb>>) {
@@ -16,22 +16,13 @@ export async function createListing(userId: number, data: {
   if (!book.length) throw new Error("الكتاب غير موجود");
   if (data.type === "external_link" && !data.externalLink) throw new Error("الرابط الخارجي مطلوب لهذا النوع من الإعلانات");
   if (data.type !== "external_link" && data.externalLink) throw new Error("الرابط الخارجي مسموح فقط للإعلانات الخارجية");
-  const result = await db.insert(listings).values({
-    userId, bookId: data.bookId, type: data.type, condition: data.condition ?? "new",
-    price: data.price.toFixed(2), currency: data.currency, country: data.country,
-    externalLink: data.externalLink ?? null, externalPlatform: data.externalPlatform ?? null,
-    description: data.description ?? null, status: "pending_review",
-  });
+  const result = await db.insert(listings).values({ userId, bookId: data.bookId, type: data.type, condition: data.condition ?? "new", price: data.price.toFixed(2), currency: data.currency, country: data.country, externalLink: data.externalLink ?? null, externalPlatform: data.externalPlatform ?? null, description: data.description ?? null, status: "pending_review" });
   return { success: true as const, listingId: Number((result as any)[0]?.insertId) };
 }
 
 export async function updateListing(userId: number, listingId: number, data: { price?: number; description?: string; status?: "active" | "sold" | "archived" }) {
   const db = requireDb(await getDb());
-  const result = await db.update(listings).set({
-    ...(data.price !== undefined ? { price: data.price.toFixed(2) } : {}),
-    ...(data.description !== undefined ? { description: data.description } : {}),
-    ...(data.status !== undefined ? { status: data.status } : {}),
-  }).where(and(eq(listings.id, listingId), eq(listings.userId, userId)));
+  const result = await db.update(listings).set({ ...(data.price !== undefined ? { price: data.price.toFixed(2) } : {}), ...(data.description !== undefined ? { description: data.description } : {}), ...(data.status !== undefined ? { status: data.status } : {}) }).where(and(eq(listings.id, listingId), eq(listings.userId, userId)));
   if (!Number((result as any)[0]?.affectedRows)) throw new Error("الإعلان غير موجود أو لا تملك صلاحية تعديله");
   return { success: true as const };
 }
@@ -131,5 +122,35 @@ export async function cancelSubscription(userId: number, subscriptionId: number)
   const db = requireDb(await getDb());
   const result = await db.update(subscriptions).set({ status: "cancelled", autoRenew: false }).where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.userId, userId)));
   if (!Number((result as any)[0]?.affectedRows)) throw new Error("الاشتراك غير موجود أو غير تابع لحسابك");
+  return { success: true as const };
+}
+
+export async function createReport(userId: number, data: { reportedUserId?: number; listingId?: number; reason: string; description?: string }) {
+  const db = requireDb(await getDb());
+  if (!data.reportedUserId && !data.listingId) throw new Error("يجب تحديد المستخدم أو الإعلان المبلغ عنه");
+  if (data.reportedUserId === userId) throw new Error("لا يمكنك الإبلاغ عن نفسك");
+  if (data.reportedUserId !== undefined) {
+    const target = await db.select({ id: users.id }).from(users).where(eq(users.id, data.reportedUserId)).limit(1);
+    if (!target.length) throw new Error("المستخدم غير موجود");
+  }
+  if (data.listingId !== undefined) {
+    const listing = await db.select({ id: listings.id }).from(listings).where(eq(listings.id, data.listingId)).limit(1);
+    if (!listing.length) throw new Error("الإعلان غير موجود");
+  }
+  const reason = data.reason.trim();
+  if (!reason) throw new Error("سبب البلاغ مطلوب");
+  const result = await db.insert(reports).values({ reporterId: userId, reportedUserId: data.reportedUserId ?? null, listingId: data.listingId ?? null, reason, description: data.description?.trim() || null, status: "pending" });
+  return { success: true as const, reportId: Number((result as any)[0]?.insertId) };
+}
+
+export async function listReports(limit = 50, offset = 0) {
+  const db = requireDb(await getDb());
+  return db.select().from(reports).orderBy(reports.createdAt).limit(Math.min(Math.max(limit, 1), 100)).offset(Math.max(offset, 0));
+}
+
+export async function resolveReport(reportId: number, status: "reviewed" | "resolved" | "dismissed", adminNotes?: string) {
+  const db = requireDb(await getDb());
+  const result = await db.update(reports).set({ status, adminNotes: adminNotes?.trim() || null, resolvedAt: status === "resolved" || status === "dismissed" ? new Date() : null }).where(eq(reports.id, reportId));
+  if (!Number((result as any)[0]?.affectedRows)) throw new Error("البلاغ غير موجود");
   return { success: true as const };
 }
