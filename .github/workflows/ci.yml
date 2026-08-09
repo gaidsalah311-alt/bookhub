@@ -8,6 +8,22 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: bookhub_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: mysql://root:test@127.0.0.1:3306/bookhub_test
+      NODE_ENV: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +45,9 @@ jobs:
 
       - name: Typecheck
         run: pnpm check
+
+      - name: Prepare test database
+        run: pnpm db:push
 
       - name: Tests
         run: pnpm test
