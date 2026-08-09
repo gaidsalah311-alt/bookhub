@@ -1,53 +1,49 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import Home from "@/pages/Home";
-import BookDetail from "@/pages/BookDetail";
-import SearchBooks from "@/pages/SearchBooks";
-import AuthorProfile from "@/pages/AuthorProfile";
-import PublisherProfile from "@/pages/PublisherProfile";
-import BookstoreProfile from "@/pages/BookstoreProfile";
-import AdminDashboard from "@/pages/AdminDashboard";
-import Reviews from "@/pages/Reviews";
-import Orders from "@/pages/Orders";
-import AdvertisementManagement from "@/pages/AdvertisementManagement";
-import FeaturedListingManagement from "@/pages/FeaturedListingManagement";
-import Subscriptions from "@/pages/Subscriptions";
-import PaymentManagement from "@/pages/PaymentManagement";
-import PaymentTest from "@/pages/PaymentTest";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import Home from "./pages/Home";
+import Browse from "./pages/Browse";
+import Profile from "./pages/Profile";
 
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"\u002f"} component={Home} />
-      <Route path={"\u002fsearch"} component={SearchBooks} />
-      <Route path={"\u002fbooks\u002f:slug"} component={BookDetail} />
-      <Route path={"\u002fbooks\u002f:bookId\u002freviews"} component={Reviews} />
-      <Route path={"\u002fauthors\u002f:userId"} component={AuthorProfile} />
-      <Route path={"\u002fpublishers\u002f:publisherId"} component={PublisherProfile} />
-      <Route path={"\u002fbookstores\u002f:bookstoreId"} component={BookstoreProfile} />
-      <Route path={"\u002fadmin"} component={AdminDashboard} />
-      <Route path={"\u002forders"} component={Orders} />
-      <Route path={"\u002fadvertisements"} component={AdvertisementManagement} />
-      <Route path={"\u002ffeatured-listings"} component={FeaturedListingManagement} />
-      <Route path={"\u002fsubscriptions"} component={Subscriptions} />
-      <Route path={"\u002fpayments"} component={PaymentManagement} />
-      <Route path={"\u002fpayment-test"} component={PaymentTest} />
-      <Route path={"\u002fadmin"} component={AdminDashboard} />
+      <Route path={"\\"} component={Home} />
+      <Route path="/browse" component={Browse} />
+      <Route path="/search" component={() => <div className="container py-20"><h1>نتائج البحث</h1></div>} />
+      <Route path="/categories" component={() => <div className="container py-20"><h1>التصنيفات</h1></div>} />
+      <Route path="/publishers" component={() => <div className="container py-20"><h1>الناشرون</h1></div>} />
+      <Route path="/dashboard" component={() => <div className="container py-20"><h1>لوحة التحكم</h1></div>} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/publisher-signup" component={() => <div className="container py-20"><h1>تسجيل ناشر</h1></div>} />
+      <Route path="/library-signup" component={() => <div className="container py-20"><h1>تسجيل مكتبة</h1></div>} />
+      <Route path="/about" component={() => <div className="container py-20"><h1>عن المنصة</h1></div>} />
+      <Route path="/contact" component={() => <div className="container py-20"><h1>اتصل بنا</h1></div>} />
+      <Route path="/privacy" component={() => <div className="container py-20"><h1>سياسة الخصوصية</h1></div>} />
+      <Route path="/terms" component={() => <div className="container py-20"><h1>شروط الاستخدام</h1></div>} />
+      <Route path="/copyright" component={() => <div className="container py-20"><h1>حقوق النشر</h1></div>} />
+      <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
+// NOTE: About Theme
+// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
+//   to keep consistent foreground/background color across components
+// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider
-        defaultTheme="dark"
+        defaultTheme="light"
+        // switchable
       >
         <TooltipProvider>
           <Toaster />

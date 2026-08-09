@@ -1,83 +1,118 @@
-# BookHub Platform - Development TODO
+# منصة BookMarket - قائمة المهام
 
-## Phase 1: Core Setup & Authentication
-- [ ] Database schema design and implementation
-- [ ] User roles and permissions system (reader, author, publisher, bookstore, admin)
-- [ ] Authentication flow with Manus OAuth
-- [ ] User profile management
-- [ ] Role-based access control (RBAC)
+## المرحلة 1: البنية الأساسية وقاعدة البيانات
+- [x] تصميم نموذج البيانات الشامل (جداول المستخدمين، الكتب، الإعلانات، الرسائل، إلخ)
+- [x] إنشاء جداول قاعدة البيانات في Drizzle ORM
+- [x] إعداد نظام الأدوار والصلاحيات (RBAC)
+- [x] إعداد نظام التدويل والعملات والدول
 
-## Phase 2: Design System & Frontend Foundation
-- [ ] Art Deco design system setup (colors, typography, components)
-- [ ] Global styling with Tailwind CSS v4
-- [ ] Navigation layout (header, footer, sidebar for admin)
-- [ ] Theme implementation (dark/light with Art Deco palette)
-- [ ] Responsive design framework
+## المرحلة 2: الواجهات الأساسية
+- [x] تصميم الهوية البصرية والألوان والخطوط
+- [x] بناء الصفحة الرئيسية مع أقسام الكتب المميزة والأحدث
+- [x] نظام البحث المتقدم مع الفلاتر الشاملة
+- [x] صفحة نتائج البحث مع الفرز والتصفية
+- [ ] صفحة تفاصيل الكتاب
 
-## Phase 3: Book Catalog & Management
-- [ ] Books table schema and CRUD operations
-- [ ] Book detail page with cover, description, author, publisher, category, price
-- [ ] Book listing page with pagination
-- [ ] Featured books section on homepage
-- [ ] Book cover image upload and storage (S3)
-- [ ] Book search functionality
-- [ ] Book filtering by category, author, publisher, language, price
+## المرحلة 3: نظام الحسابات والملفات الشخصية
+- [x] تسجيل وتسجيل دخول المستخدمين (عبر OAuth)
+- [x] ملفات شخصية للمستخدم العادي
+- [ ] ملفات احترافية للمؤلفين
+- [ ] ملفات احترافية للمكتبات
+- [ ] ملفات احترافية لدور النشر
+- [ ] نظام التحقق والشارات
+- [ ] إدارة الحساب والإعدادات الشخصية
 
-## Phase 4: User Profiles & Content
-- [ ] Author profile page and management
-- [ ] Publisher profile page and management
-- [ ] Bookstore profile page and management
-- [ ] User profile customization
-- [ ] Author/Publisher book listings
-- [ ] Profile image upload (S3)
+## المرحلة 4: نظام الإعلانات والكتب
+- [ ] نموذج إضافة كتاب جديد (ورقي، رقمي، رابط خارجي)
+- [ ] إدارة صور الكتب والتخزين (S3)
+- [ ] صفحة إعلاناتي لإدارة الإعلانات الشخصية
+- [ ] تعديل وحذف وإعادة نشر الإعلانات
+- [ ] ترقية الإعلانات للمستويات المميزة
+- [ ] نظام التقييمات والتعليقات
+- [x] API للبحث والفلترة
+- [x] API لاسترجاع الإعلانات
 
-## Phase 5: Categories & Classifications
-- [ ] Categories table and management
-- [ ] Category browsing page
-- [ ] Category filtering in book search
-- [ ] Language support for books
+## المرحلة 5: الرسائل والمفضلة والمتابعة
+- [ ] نظام الرسائل المباشرة بين المستخدمين
+- [ ] صفحة الرسائل مع قائمة المحادثات
+- [ ] إشعارات الرسائل الجديدة
+- [ ] نظام المفضلة مع قوائم متعددة
+- [ ] نظام المتابعة للمؤلفين والمكتبات ودور النشر
+- [ ] إشعارات المتابعة
+- [x] API للرسائل والمحادثات
+- [x] API للمفضلة والمتابعة
 
-## Phase 6: Advertising & Featured Listings
-- [ ] Advertisements table schema
-- [ ] Featured listings system
-- [ ] Ad management interface
-- [ ] Ad display on homepage and category pages
-- [ ] Featured books carousel
+## المرحلة 6: الاشتراكات والإعلانات المميزة
+- [ ] صفحة الاشتراكات بخطط متعددة
+- [ ] نظام الدفع والفواتير
+- [ ] إدارة الاشتراكات النشطة
+- [ ] الإعلانات المميزة والذهبية
+- [ ] الحملات الإعلانية لدور النشر والمكتبات
+- [ ] نظام النقاط والمكافآت الأساسي
+- [x] API للاشتراكات والخطط
 
-## Phase 7: Admin Dashboard
-- [ ] Admin dashboard layout
-- [ ] User management interface
-- [ ] Book management interface
-- [ ] Category management
-- [ ] Advertisement management
-- [ ] Reports and analytics
-- [ ] Subscription management
+## المرحلة 7: لوحة الإدارة الشاملة
+- [ ] إحصائيات عامة ولوحة معلومات
+- [ ] إدارة المستخدمين والأدوار
+- [ ] إدارة الإعلانات والكتب
+- [ ] إدارة الاشتراكات والدفع
+- [ ] إدارة البلاغات والحظر
+- [ ] إدارة الإشعارات والرسائل
+- [ ] التقارير والتصدير
 
-## Phase 8: Payment & Subscriptions
-- [ ] Stripe integration setup
-- [ ] Subscription plans for authors and publishers
-- [ ] Paid advertising system
-- [ ] Featured listing payment system
-- [ ] Payment processing and order management
-- [ ] Invoice generation
+## المرحلة 8: التدويل والسياسات
+- [ ] نظام تعدد اللغات (عربي، إنجليزي، فرنسي)
+- [ ] دعم RTL/LTR
+- [ ] إدارة العملات والدول
+- [ ] صفحة سياسة الخصوصية
+- [ ] صفحة شروط الاستخدام
+- [ ] صفحة حقوق النشر
+- [ ] صفحة اتصل بنا
+- [ ] صفحة الأسئلة الشائعة
+- [ ] نظام البلاغات والحظر
 
-## Phase 9: File Storage (S3)
-- [ ] S3 integration for book covers
-- [ ] S3 integration for author/publisher images
-- [ ] S3 integration for book files (if applicable)
-- [ ] Presigned URLs for secure file access
-- [ ] File upload validation
+## المرحلة 9: الاختبار والتحسينات
+- [ ] اختبارات الوحدة (Unit Tests)
+- [ ] اختبارات التكامل (Integration Tests)
+- [ ] اختبارات الأداء والتحسينات
+- [ ] اختبار التوافقية عبر المتصفحات
+- [ ] اختبار الاستجابة على الأجهزة المختلفة
+- [ ] مراجعة الأمان والخصوصية
+- [ ] تحسينات SEO
 
-## Phase 10: Testing & Optimization
-- [ ] Unit tests for critical functions
-- [ ] Integration tests for API endpoints
-- [ ] Performance optimization
-- [ ] Security audit
-- [ ] SEO optimization
+## المرحلة 10: التحسينات الإضافية
+- [ ] نظام الإشعارات المتقدم
+- [ ] تحسينات الأداء والسرعة
+- [ ] تحسينات الأمان
+- [ ] دعم العملاء والمساعدة
+- [ ] إدارة الإشعارات والرسائل
+- [ ] التقارير والتصدير
 
-## Phase 11: Deployment & GitHub
-- [ ] Code cleanup and documentation
-- [ ] Final testing
-- [ ] Checkpoint creation
-- [ ] GitHub push with all changes
-- [ ] Deployment preparation
+## المرحلة 11: تحسينات واجهة المستخدم والتأثيرات
+- [x] إضافة رسائل Toast للتأكيد عند إضافة إعلان
+- [x] إضافة رسائل Toast لحذف وتعديل الإعلانات
+- [x] إضافة رسائل Toast لإرسال الرسائل
+- [x] إضافة رسائل Toast لإضافة/إزالة المفضلة
+- [x] إضافة رسائل Toast للمتابعة/إلغاء المتابعة
+- [x] تأثيرات تحميل سلسة عند جلب البيانات
+- [x] مؤشرات تحميل في الأزرار عند الضغط
+- [x] رسائل خطأ واضحة عند فشل العمليات
+- [x] تأثيرات انتقال سلسة بين الصفحات
+- [x] تحسين حالات الفراغ (Empty States) مع رسائل مفيدة
+
+## ملاحظات عامة
+- الحفاظ على سهولة الاستخدام والتصميم البسيط
+- دعم Mobile First
+- الامتثال لـ GDPR والقوانين الدولية
+- منع المحتوى المقرصن واحترام حقوق النشر
+- الأداء والسرعة أولاً
+
+### المرحلة 1: إكمال ميزات المستخدم الأساسية (الأولوية القصوى)
+- [x] تنفيذ منطق حفظ فعلي لملفات المؤلف/المكتبة/الناشر في server/routers.ts وربطه بدوال قاعدة البيانات بدلاً من TODO placeholders.
+- [x] إضافة/التحقق من دوال DB لتحديث ملفات المؤلفين والمكتبات ودور النشر مع معالجة أخطاء وحالات عدم وجود السجل.
+- [x] تشغيل pnpm check و/أو pnpm build بعد آخر التعديلات وتأكيد خلو المشروع من أخطاء TypeScript قبل تعليم المهام كمكتملة.
+- [x] اختبار تدفق قراءة/تعديل/حفظ الملفات الشخصية المتخصصة برمجيًا والتأكد من عرض رسائل نجاح/فشل صحيحة بناءً على النتيجة الفعلية.
+
+- [ ] إضافة اختبارات تكامل/وحدة لصفحات أو إجراءات الملفات الشخصية المتخصصة تغطي read/update/success/failure paths.
+- [ ] التحقق من أن واجهات AuthorProfile وLibraryProfile وPublisherProfile تعرض رسائل Toast نجاح وفشل حقيقية مرتبطة بنتائج الـ mutation وليس رسائل ثابتة.
+- [ ] تشغيل pnpm test أو وسيلة اختبار موثقة للتدفق وتسجيل النتيجة قبل تعليم المهمة كمكتملة.

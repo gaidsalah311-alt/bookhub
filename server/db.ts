@@ -1,35 +1,28 @@
-import { eq, desc, and, like, gte, lte } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, inArray, between, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
   users,
   categories,
-  authors,
-  publishers,
-  bookstores,
+  listings,
   books,
-  advertisements,
+  authorProfiles,
+  libraryProfiles,
+  publisherProfiles,
   subscriptionPlans,
-  userSubscriptions,
-  orders,
-  reviews,
-  type User,
-  type Category,
-  type Author,
-  type Publisher,
-  type Bookstore,
-  type Book,
-  type Advertisement,
-  type SubscriptionPlan,
-  type UserSubscription,
-  type Order,
-  type Review,
+  subscriptions,
+  conversations,
+  messages,
+  favorites,
+  follows,
+  notifications,
+  ratings,
+  reports,
 } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -42,9 +35,9 @@ export async function getDb() {
   return _db;
 }
 
-// ============================================================================
-// USER OPERATIONS
-// ============================================================================
+/**
+ * ===== عمليات المستخدمين =====
+ */
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -63,7 +56,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod", "profileImage", "bio"] as const;
+    const textFields = ["name", "email", "loginMethod", "profileImage", "bio", "country", "language", "currency"] as const;
     type TextField = (typeof textFields)[number];
 
     const assignNullable = (field: TextField) => {
@@ -84,8 +77,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -105,18 +98,15 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 }
 
-export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
+  if (!db) return undefined;
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function getUserById(id: number): Promise<User | undefined> {
+export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
 
@@ -124,18 +114,26 @@ export async function getUserById(id: number): Promise<User | undefined> {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// ============================================================================
-// CATEGORY OPERATIONS
-// ============================================================================
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
 
-export async function getCategories(): Promise<Category[]> {
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * ===== عمليات الكتب والإعلانات =====
+ */
+
+export async function getCategories() {
   const db = await getDb();
   if (!db) return [];
 
-  return await db.select().from(categories);
+  return await db.select().from(categories).orderBy(asc(categories.name));
 }
 
-export async function getCategoryBySlug(slug: string): Promise<Category | undefined> {
+export async function getCategoryBySlug(slug: string) {
   const db = await getDb();
   if (!db) return undefined;
 
@@ -143,225 +141,429 @@ export async function getCategoryBySlug(slug: string): Promise<Category | undefi
   return result.length > 0 ? result[0] : undefined;
 }
 
-// ============================================================================
-// BOOK OPERATIONS
-// ============================================================================
-
-export async function getBooks(limit: number = 20, offset: number = 0): Promise<Book[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(books)
-    .where(eq(books.isPublished, true))
-    .orderBy(desc(books.createdAt))
-    .limit(limit)
-    .offset(offset);
-}
-
-export async function getBookById(id: number): Promise<Book | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.select().from(books).where(eq(books.id, id)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getBookBySlug(slug: string): Promise<Book | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.select().from(books).where(eq(books.slug, slug)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getFeaturedBooks(limit: number = 10): Promise<Book[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(books)
-    .where(and(eq(books.isPublished, true), eq(books.isFeatured, true)))
-    .orderBy(desc(books.rating))
-    .limit(limit);
-}
-
-export async function searchBooks(
+export async function searchListings(
   query: string,
-  categoryId?: number,
-  minPrice?: number,
-  maxPrice?: number,
-  language?: string,
-  limit: number = 20,
-  offset: number = 0
-): Promise<Book[]> {
+  filters?: {
+    categoryId?: number;
+    country?: string;
+    language?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    type?: string;
+    limit?: number;
+    offset?: number;
+  }
+) {
   const db = await getDb();
   if (!db) return [];
 
-  const conditions = [eq(books.isPublished, true), like(books.title, `%${query}%`)];
+  const limit = filters?.limit ?? 20;
+  const offset = filters?.offset ?? 0;
 
-  if (categoryId) {
-    conditions.push(eq(books.categoryId, categoryId));
+  const conditions = [
+    eq(listings.status, "active"),
+    or(
+      like(books.title, `%${query}%`),
+      like(books.author, `%${query}%`),
+      like(books.description, `%${query}%`)
+    ),
+  ];
+
+  if (filters?.categoryId) {
+    conditions.push(eq(books.categoryId, filters.categoryId));
   }
-  if (minPrice !== undefined) {
-    conditions.push(gte(books.price, minPrice.toString()));
+  if (filters?.country) {
+    conditions.push(eq(listings.country, filters.country));
   }
-  if (maxPrice !== undefined) {
-    conditions.push(lte(books.price, maxPrice.toString()));
+  if (filters?.language) {
+    conditions.push(eq(books.language, filters.language));
   }
-  if (language) {
-    conditions.push(eq(books.language, language));
+  if (filters?.type) {
+    conditions.push(eq(listings.type, filters.type as any));
+  }
+  if (filters?.minPrice !== undefined) {
+    conditions.push(gte(listings.price, filters.minPrice.toString()));
+  }
+  if (filters?.maxPrice !== undefined) {
+    conditions.push(lte(listings.price, filters.maxPrice.toString()));
   }
 
   return await db
     .select()
-    .from(books)
+    .from(listings)
+    .innerJoin(books, eq(listings.bookId, books.id))
+    .innerJoin(users, eq(listings.userId, users.id))
     .where(and(...conditions))
-    .orderBy(desc(books.createdAt))
+    .orderBy(desc(listings.createdAt))
     .limit(limit)
     .offset(offset);
 }
 
-// ============================================================================
-// AUTHOR OPERATIONS
-// ============================================================================
-
-export async function getAuthorByUserId(userId: number): Promise<Author | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.select().from(authors).where(eq(authors.userId, userId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getAuthorBooks(authorId: number, limit: number = 20): Promise<Book[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(books)
-    .where(and(eq(books.authorId, authorId), eq(books.isPublished, true)))
-    .orderBy(desc(books.createdAt))
-    .limit(limit);
-}
-
-// ============================================================================
-// PUBLISHER OPERATIONS
-// ============================================================================
-
-export async function getPublisherByUserId(userId: number): Promise<Publisher | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.select().from(publishers).where(eq(publishers.userId, userId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getPublisherBooks(publisherId: number, limit: number = 20): Promise<Book[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(books)
-    .where(and(eq(books.publisherId, publisherId), eq(books.isPublished, true)))
-    .orderBy(desc(books.createdAt))
-    .limit(limit);
-}
-
-// ============================================================================
-// BOOKSTORE OPERATIONS
-// ============================================================================
-
-export async function getBookstoreByUserId(userId: number): Promise<Bookstore | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-
-  const result = await db.select().from(bookstores).where(eq(bookstores.userId, userId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-// ============================================================================
-// SUBSCRIPTION OPERATIONS
-// ============================================================================
-
-export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return await db
-    .select()
-    .from(subscriptionPlans)
-    .where(eq(subscriptionPlans.isActive, true));
-}
-
-export async function getUserSubscription(userId: number): Promise<UserSubscription | undefined> {
+export async function getListingById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
 
   const result = await db
     .select()
-    .from(userSubscriptions)
-    .where(and(eq(userSubscriptions.userId, userId), eq(userSubscriptions.status, 'active')))
+    .from(listings)
+    .innerJoin(books, eq(listings.bookId, books.id))
+    .innerJoin(users, eq(listings.userId, users.id))
+    .where(eq(listings.id, id))
     .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-// ============================================================================
-// ADVERTISEMENT OPERATIONS
-// ============================================================================
-
-export async function getActiveAdvertisements(limit: number = 10): Promise<Advertisement[]> {
+export async function getUserListings(userId: number, limit: number = 20, offset: number = 0) {
   const db = await getDb();
   if (!db) return [];
 
-  const now = new Date();
   return await db
     .select()
-    .from(advertisements)
+    .from(listings)
+    .innerJoin(books, eq(listings.bookId, books.id))
+    .where(eq(listings.userId, userId))
+    .orderBy(desc(listings.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * ===== عمليات الرسائل =====
+ */
+
+export async function getConversation(userId1: number, userId2: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(conversations)
     .where(
-      and(
-        eq(advertisements.status, 'active'),
-        eq(advertisements.isPaid, true),
-        lte(advertisements.startDate, now),
-        gte(advertisements.endDate, now)
+      or(
+        and(eq(conversations.userId1, userId1), eq(conversations.userId2, userId2)),
+        and(eq(conversations.userId1, userId2), eq(conversations.userId2, userId1))
       )
     )
-    .limit(limit);
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
 }
 
-// ============================================================================
-// REVIEW OPERATIONS
-// ============================================================================
-
-export async function getBookReviews(bookId: number, limit: number = 20): Promise<Review[]> {
+export async function getUserConversations(userId: number, limit: number = 20, offset: number = 0) {
   const db = await getDb();
   if (!db) return [];
 
   return await db
     .select()
-    .from(reviews)
-    .where(eq(reviews.bookId, bookId))
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit);
+    .from(conversations)
+    .where(or(eq(conversations.userId1, userId), eq(conversations.userId2, userId)))
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(limit)
+    .offset(offset);
 }
 
-// ============================================================================
-// ORDER OPERATIONS
-// ============================================================================
-
-export async function getUserOrders(userId: number, limit: number = 20): Promise<Order[]> {
+export async function getConversationMessages(conversationId: number, limit: number = 50, offset: number = 0) {
   const db = await getDb();
   if (!db) return [];
 
   return await db
     .select()
-    .from(orders)
-    .where(eq(orders.userId, userId))
-    .orderBy(desc(orders.createdAt))
-    .limit(limit);
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(desc(messages.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * ===== عمليات المفضلة والمتابعة =====
+ */
+
+export async function getUserFavorites(userId: number, limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(favorites)
+    .innerJoin(listings, eq(favorites.listingId, listings.id))
+    .innerJoin(books, eq(listings.bookId, books.id))
+    .where(eq(favorites.userId, userId))
+    .orderBy(desc(favorites.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getUserFollowing(userId: number, limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(follows)
+    .innerJoin(users, eq(follows.followingId, users.id))
+    .where(eq(follows.followerId, userId))
+    .orderBy(desc(follows.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getUserFollowers(userId: number, limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(follows)
+    .innerJoin(users, eq(follows.followerId, users.id))
+    .where(eq(follows.followingId, userId))
+    .orderBy(desc(follows.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * ===== عمليات الاشتراكات =====
+ */
+
+export async function getSubscriptionPlans() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true));
+}
+
+export async function getUserActiveSubscription(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(subscriptions)
+    .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.status, "active"),
+        gte(subscriptions.endDate, new Date())
+      )
+    )
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * ===== عمليات الإشعارات =====
+ */
+
+export async function getUserNotifications(userId: number, limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getUnreadNotificationsCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .select({ count: notifications.id })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+
+  return result.length > 0 ? result.length : 0;
+}
+
+/**
+ * ===== عمليات التقييمات =====
+ */
+
+export async function getUserRatings(userId: number, limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(ratings)
+    .where(eq(ratings.targetUserId, userId))
+    .orderBy(desc(ratings.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getUserAverageRating(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .select({ avgRating: ratings.rating })
+    .from(ratings)
+    .where(eq(ratings.targetUserId, userId));
+
+  if (result.length === 0) return 0;
+  const sum = result.reduce((acc, r) => acc + (r.avgRating || 0), 0);
+  return Math.round((sum / result.length) * 10) / 10;
+}
+
+/**
+ * ===== عمليات البلاغات =====
+ */
+
+export async function getPendingReports(limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(reports)
+    .where(eq(reports.status, "pending"))
+    .orderBy(desc(reports.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * ===== عمليات الملفات الشخصية =====
+ */
+
+export async function getAuthorProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(authorProfiles).where(eq(authorProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getLibraryProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(libraryProfiles).where(eq(libraryProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getPublisherProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(publisherProfiles).where(eq(publisherProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+
+export async function updateAuthorProfile(userId: number, data: { bio?: string, website?: string, socialLinks?: Record<string, string> }) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update author profile: database not available");
+    return { success: false };
+  }
+
+  const valuesToInsert = {
+    userId: userId,
+    bio: data.bio ?? null,
+    website: data.website ?? null,
+    socialLinks: data.socialLinks ? JSON.stringify(data.socialLinks) : null,
+  };
+
+  const valuesToUpdate: { [key: string]: any } = {};
+  if (data.bio !== undefined) valuesToUpdate.bio = data.bio;
+  if (data.website !== undefined) valuesToUpdate.website = data.website;
+  if (data.socialLinks !== undefined) valuesToUpdate.socialLinks = data.socialLinks ? JSON.stringify(data.socialLinks) : null;
+
+  const result = await db.insert(authorProfiles)
+    .values(valuesToInsert)
+    .onDuplicateKeyUpdate({
+      set: valuesToUpdate,
+    });
+  console.log("updateAuthorProfile result:", result);
+
+  if (result[0].affectedRows === 0 && result[0].insertId === 0) {
+    throw new Error("فشل إنشاء أو تحديث ملف المؤلف");
+  }
+  return { success: true };
+}
+
+export async function updateLibraryProfile(userId: number, data: { libraryName?: string, website?: string, address?: string, phone?: string, email?: string, bio?: string }) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update library profile: database not available");
+    return { success: false };
+  }
+
+  const valuesToInsert = {
+    userId: userId,
+    libraryName: data.libraryName || "مكتبة جديدة",
+    website: data.website ?? null,
+    address: data.address ?? null,
+    phone: data.phone ?? null,
+    email: data.email ?? null,
+    bio: data.bio ?? null,
+  };
+
+  const valuesToUpdate: { [key: string]: any } = {};
+  if (data.libraryName !== undefined) valuesToUpdate.libraryName = data.libraryName;
+  if (data.website !== undefined) valuesToUpdate.website = data.website;
+  if (data.address !== undefined) valuesToUpdate.address = data.address;
+  if (data.phone !== undefined) valuesToUpdate.phone = data.phone;
+  if (data.email !== undefined) valuesToUpdate.email = data.email;
+  if (data.bio !== undefined) valuesToUpdate.bio = data.bio;
+
+  const result = await db.insert(libraryProfiles)
+    .values(valuesToInsert)
+    .onDuplicateKeyUpdate({
+      set: valuesToUpdate,
+    });
+  console.log("updateLibraryProfile result:", result);
+
+  if (result[0].affectedRows === 0 && result[0].insertId === 0) {
+    throw new Error("فشل إنشاء أو تحديث ملف المكتبة");
+  }
+  return { success: true };
+}
+
+export async function updatePublisherProfile(userId: number, data: { publisherName?: string, website?: string, address?: string, phone?: string, email?: string, bio?: string }) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update publisher profile: database not available");
+    return { success: false };
+  }
+
+  const valuesToInsert = {
+    userId: userId,
+    publisherName: data.publisherName || "ناشر جديد",
+    website: data.website ?? null,
+    address: data.address ?? null,
+    phone: data.phone ?? null,
+    email: data.email ?? null,
+    bio: data.bio ?? null,
+  };
+
+  const valuesToUpdate: { [key: string]: any } = {};
+  if (data.publisherName !== undefined) valuesToUpdate.publisherName = data.publisherName;
+  if (data.website !== undefined) valuesToUpdate.website = data.website;
+  if (data.address !== undefined) valuesToUpdate.address = data.address;
+  if (data.phone !== undefined) valuesToUpdate.phone = data.phone;
+  if (data.email !== undefined) valuesToUpdate.email = data.email;
+  if (data.bio !== undefined) valuesToUpdate.bio = data.bio;
+
+  const result = await db.insert(publisherProfiles)
+    .values(valuesToInsert)
+    .onDuplicateKeyUpdate({
+      set: valuesToUpdate,
+    });
+  console.log("updatePublisherProfile result:", result);
+
+  if (result[0].affectedRows === 0 && result[0].insertId === 0) {
+    throw new Error("فشل إنشاء أو تحديث ملف الناشر");
+  }
+  return { success: true };
 }

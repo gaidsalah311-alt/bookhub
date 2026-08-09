@@ -1,140 +1,46 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800&display=swap');
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-:root {
-  /* Art Deco Color Palette - OKLCH Format */
-  --primary: oklch(0.65 0.25 49); /* Metallic Gold */
-  --primary-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-primary: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-primary-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --chart-1: oklch(0.7 0.2 49);
-  --chart-2: oklch(0.65 0.25 49);
-  --chart-3: oklch(0.6 0.22 49);
-  --chart-4: oklch(0.55 0.2 49);
-  --chart-5: oklch(0.5 0.18 49);
-  --radius: 0.25rem; /* Sharp angles for Art Deco */
-  --background: oklch(0.1 0.01 0); /* Deep Black */
-  --foreground: oklch(0.95 0.01 60); /* Cream/Off-White */
-  --card: oklch(0.15 0.01 0); /* Very Dark Gray */
-  --card-foreground: oklch(0.95 0.01 60); /* Cream */
-  --popover: oklch(0.15 0.01 0); /* Very Dark Gray */
-  --popover-foreground: oklch(0.95 0.01 60); /* Cream */
-  --secondary: oklch(0.2 0.01 0); /* Dark Gray */
-  --secondary-foreground: oklch(0.95 0.01 60); /* Cream */
-  --muted: oklch(0.4 0.02 0); /* Medium Gray */
-  --muted-foreground: oklch(0.75 0.01 60); /* Light Gray */
-  --accent: oklch(0.65 0.25 49); /* Gold */
-  --accent-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.65 0.25 49); /* Gold Border */
-  --input: oklch(0.2 0.01 0); /* Dark Gray Input */
-  --ring: oklch(0.65 0.25 49); /* Gold Ring */
-  --sidebar: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-foreground: oklch(0.95 0.01 60); /* Cream */
-  --sidebar-accent: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-accent-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-border: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-ring: oklch(0.65 0.25 49); /* Gold */
-}
-
-.dark {
-  --primary: oklch(0.65 0.25 49); /* Metallic Gold */
-  --primary-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-primary: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-primary-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --background: oklch(0.1 0.01 0); /* Deep Black */
-  --foreground: oklch(0.95 0.01 60); /* Cream */
-  --card: oklch(0.15 0.01 0); /* Very Dark Gray */
-  --card-foreground: oklch(0.95 0.01 60); /* Cream */
-  --popover: oklch(0.15 0.01 0); /* Very Dark Gray */
-  --popover-foreground: oklch(0.95 0.01 60); /* Cream */
-  --secondary: oklch(0.2 0.01 0); /* Dark Gray */
-  --secondary-foreground: oklch(0.95 0.01 60); /* Cream */
-  --muted: oklch(0.4 0.02 0); /* Medium Gray */
-  --muted-foreground: oklch(0.75 0.01 60); /* Light Gray */
-  --accent: oklch(0.65 0.25 49); /* Gold */
-  --accent-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.65 0.25 49); /* Gold Border */
-  --input: oklch(0.2 0.01 0); /* Dark Gray Input */
-  --ring: oklch(0.65 0.25 49); /* Gold Ring */
-  --chart-1: oklch(0.7 0.2 49);
-  --chart-2: oklch(0.65 0.25 49);
-  --chart-3: oklch(0.6 0.22 49);
-  --chart-4: oklch(0.55 0.2 49);
-  --chart-5: oklch(0.5 0.18 49);
-  --sidebar: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-foreground: oklch(0.95 0.01 60); /* Cream */
-  --sidebar-accent: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-accent-foreground: oklch(0.1 0.01 0); /* Deep Black */
-  --sidebar-border: oklch(0.65 0.25 49); /* Gold */
-  --sidebar-ring: oklch(0.65 0.25 49); /* Gold */
+@theme {
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(15% 0.05 25);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(15% 0.05 25);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(15% 0.05 25);
+  --color-muted: oklch(96% 0 0);
+  --color-muted-foreground: oklch(45% 0 0);
+  --color-accent: oklch(50% 0.2 12);
+  --color-accent-foreground: oklch(100% 0 0);
+  --color-destructive: oklch(60% 0.2 0);
+  --color-destructive-foreground: oklch(100% 0 0);
+  --color-border: oklch(90% 0 0);
+  --color-input: oklch(96% 0 0);
+  --color-ring: oklch(50% 0.2 12);
+  --radius-base: 0.5rem;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  html {
+    @apply scroll-smooth;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Montserrat', sans-serif;
+    font-family: "Poppins", sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--foreground);
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Playfair Display", serif;
+    @apply font-bold;
   }
 
   h1 {
-    @apply text-4xl md:text-5xl lg:text-6xl;
+    @apply text-4xl md:text-5xl;
   }
 
   h2 {
@@ -145,90 +51,166 @@
     @apply text-2xl md:text-3xl;
   }
 
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  h5 {
+    @apply text-lg md:text-xl;
+  }
+
+  h6 {
+    @apply text-base md:text-lg;
+  }
+
+  button {
+    @apply transition-all duration-200;
+  }
+
+  button:active {
+    @apply scale-95;
   }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
   .flex {
-    min-height: 0;
-    min-width: 0;
+    @apply flex min-h-0 min-w-0;
   }
 
-  /* Art Deco Divider */
-  .divider-gold {
-    @apply border-t-2 border-primary;
-    background: linear-gradient(to right, transparent, rgb(184 134 11), transparent);
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-accent px-6 py-3 font-semibold text-accent-foreground shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95;
   }
 
-  /* Art Deco Frame */
-  .frame-gold {
-    @apply border-2 border-primary p-6;
-    box-shadow: inset 0 0 20px rgba(184, 134, 11, 0.1);
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border-2 border-accent bg-transparent px-6 py-3 font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-accent-foreground active:scale-95;
   }
 
-  /* Luxury Button */
-  .btn-luxury {
-    @apply px-8 py-3 font-semibold text-primary-foreground transition-all duration-200;
-    background: linear-gradient(135deg, rgb(184 134 11), rgb(218 165 32));
-    border: 2px solid rgb(184 134 11);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-medium text-foreground transition-all duration-200 hover:bg-muted active:scale-95;
   }
 
-  .btn-luxury:hover {
-    @apply shadow-lg;
-    transform: translateY(-2px);
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
   }
 
-  /* Geometric Pattern Background */
-  .pattern-deco {
-    background-image: 
-      repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(184, 134, 11, 0.03) 10px, rgba(184, 134, 11, 0.03) 20px);
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent to-orange-500 bg-clip-text text-transparent;
   }
 
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
+  .section-title {
+    @apply text-3xl md:text-4xl font-bold mb-4 text-foreground;
   }
 
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
+  .badge-premium {
+    @apply inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 px-3 py-1 text-sm font-semibold text-white;
+  }
+
+  .badge-gold {
+    @apply inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-1 text-sm font-semibold text-white;
+  }
+
+  .badge-verified {
+    @apply inline-flex items-center gap-1 rounded-full bg-green-500 px-3 py-1 text-sm font-semibold text-white;
+  }
+
+  .input-focus {
+    @apply focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:outline-none;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent via-orange-500 to-red-500 bg-clip-text text-transparent;
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.5s ease-out forwards;
+  }
+
+  .animate-slide-in-right {
+    animation: slideInRight 0.5s ease-out forwards;
+  }
+
+  .animate-scale-up {
+    animation: scaleUp 0.3s ease-out forwards;
+  }
+
+  .stagger-item {
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .stagger-item:nth-child(1) { animation-delay: 0ms; }
+  .stagger-item:nth-child(2) { animation-delay: 50ms; }
+  .stagger-item:nth-child(3) { animation-delay: 100ms; }
+  .stagger-item:nth-child(4) { animation-delay: 150ms; }
+  .stagger-item:nth-child(5) { animation-delay: 200ms; }
+  .stagger-item:nth-child(n+6) { animation-delay: 250ms; }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
   }
 }
