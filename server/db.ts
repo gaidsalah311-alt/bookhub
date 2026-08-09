@@ -1,4 +1,4 @@
-import { eq, and, or, desc, asc, like, inArray, between, gte, lte, getTableColumns } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, inArray, between, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -89,24 +89,73 @@ export async function getPendingReports(limit: number = 20, offset: number = 0) 
 
 export async function getAuthorProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...getTableColumns(authorProfiles), name: users.name, profileImage: users.profileImage, email: users.email }).from(authorProfiles).innerJoin(users, eq(authorProfiles.userId, users.id)).where(eq(authorProfiles.userId, userId)).limit(1);
+  const result = await db.select({
+    id: authorProfiles.id,
+    userId: authorProfiles.userId,
+    website: authorProfiles.website,
+    socialLinks: authorProfiles.socialLinks,
+    bio: authorProfiles.bio,
+    isVerified: authorProfiles.isVerified,
+    verificationDate: authorProfiles.verificationDate,
+    createdAt: authorProfiles.createdAt,
+    updatedAt: authorProfiles.updatedAt,
+    name: users.name,
+    profileImage: users.profileImage,
+    email: users.email,
+  }).from(authorProfiles).innerJoin(users, eq(authorProfiles.userId, users.id)).where(eq(authorProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 export async function getLibraryProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...getTableColumns(libraryProfiles), name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(libraryProfiles).innerJoin(users, eq(libraryProfiles.userId, users.id)).where(eq(libraryProfiles.userId, userId)).limit(1);
+  const result = await db.select({
+    id: libraryProfiles.id,
+    userId: libraryProfiles.userId,
+    libraryName: libraryProfiles.libraryName,
+    logo: libraryProfiles.logo,
+    coverImage: libraryProfiles.coverImage,
+    website: libraryProfiles.website,
+    address: libraryProfiles.address,
+    phone: libraryProfiles.phone,
+    email: libraryProfiles.email,
+    bio: libraryProfiles.bio,
+    isVerified: libraryProfiles.isVerified,
+    verificationDate: libraryProfiles.verificationDate,
+    createdAt: libraryProfiles.createdAt,
+    updatedAt: libraryProfiles.updatedAt,
+    name: users.name,
+    profileImage: users.profileImage,
+    userEmail: users.email,
+  }).from(libraryProfiles).innerJoin(users, eq(libraryProfiles.userId, users.id)).where(eq(libraryProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 export async function getPublisherProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...getTableColumns(publisherProfiles), name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(publisherProfiles).innerJoin(users, eq(publisherProfiles.userId, users.id)).where(eq(publisherProfiles.userId, userId)).limit(1);
+  const result = await db.select({
+    id: publisherProfiles.id,
+    userId: publisherProfiles.userId,
+    publisherName: publisherProfiles.publisherName,
+    logo: publisherProfiles.logo,
+    coverImage: publisherProfiles.coverImage,
+    website: publisherProfiles.website,
+    address: publisherProfiles.address,
+    phone: publisherProfiles.phone,
+    email: publisherProfiles.email,
+    bio: publisherProfiles.bio,
+    isVerified: publisherProfiles.isVerified,
+    verificationDate: publisherProfiles.verificationDate,
+    createdAt: publisherProfiles.createdAt,
+    updatedAt: publisherProfiles.updatedAt,
+    name: users.name,
+    profileImage: users.profileImage,
+    userEmail: users.email,
+  }).from(publisherProfiles).innerJoin(users, eq(publisherProfiles.userId, users.id)).where(eq(publisherProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 
 export async function updateAuthorProfile(userId: number, data: { bio?: string, website?: string, socialLinks?: Record<string, string> }) {
   const db = await getDb(); if (!db) { console.warn("[Database] Cannot update author profile: database not available"); return { success: false }; }
-  const valuesToInsert = { userId, bio: data.bio ?? null, website: data.website ?? null, socialLinks: data.socialLinks ? JSON.stringify(data.socialLinks) : null };
-  const valuesToUpdate: Record<string, any> = {}; if (data.bio !== undefined) valuesToUpdate.bio = data.bio; if (data.website !== undefined) valuesToUpdate.website = data.website; if (data.socialLinks !== undefined) valuesToUpdate.socialLinks = data.socialLinks ? JSON.stringify(data.socialLinks) : null;
+  const valuesToInsert = { userId, bio: data.bio ?? null, website: data.website ?? null, socialLinks: data.socialLinks ?? null };
+  const valuesToUpdate: Record<string, any> = {}; if (data.bio !== undefined) valuesToUpdate.bio = data.bio; if (data.website !== undefined) valuesToUpdate.website = data.website; if (data.socialLinks !== undefined) valuesToUpdate.socialLinks = data.socialLinks ?? null;
   const result = await db.insert(authorProfiles).values(valuesToInsert).onDuplicateKeyUpdate({ set: valuesToUpdate });
   if (result[0].affectedRows === 0 && result[0].insertId === 0) throw new Error("فشل إنشاء أو تحديث ملف المؤلف"); return { success: true };
 }
