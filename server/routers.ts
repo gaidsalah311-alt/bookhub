@@ -73,7 +73,7 @@ export const appRouter = router({
     getConversationMessages: protectedProcedure.input(z.object({ conversationId: z.number(), limit: z.number().default(50), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
         const rows = await getUserConversations(ctx.user.id, 1000, 0);
-        if (!rows.some((row: any) => row.conversations.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" });
+        if (!rows.some((row: any) => row.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" });
         return getConversationMessages(input.conversationId, input.limit, input.offset);
       }),
     sendMessage: protectedProcedure.input(z.object({ conversationId: z.number(), content: z.string().trim().min(1).max(5000), image: z.string().url().optional() }))
