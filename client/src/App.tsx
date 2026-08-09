@@ -1,50 +1,73 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import Home from "@/pages/Home";
+import Browse from "@/pages/Browse";
+import Profile from "@/pages/Profile";
+import BookDetail from "@/pages/BookDetail";
+import SearchBooks from "@/pages/SearchBooks";
+import AuthorProfile from "@/pages/AuthorProfile";
+import PublisherProfile from "@/pages/PublisherProfile";
+import BookstoreProfile from "@/pages/BookstoreProfile";
+import AdminDashboard from "@/pages/AdminDashboard";
+import Reviews from "@/pages/Reviews";
+import Orders from "@/pages/Orders";
+import AdvertisementManagement from "@/pages/AdvertisementManagement";
+import FeaturedListingManagement from "@/pages/FeaturedListingManagement";
+import Subscriptions from "@/pages/Subscriptions";
+import PaymentManagement from "@/pages/PaymentManagement";
+import PaymentTest from "@/pages/PaymentTest";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
-import Browse from "./pages/Browse";
-import Profile from "./pages/Profile";
+
+function StaticPage({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <main className="container py-20 text-center">
+      <h1 className="text-3xl font-bold mb-4">{title}</h1>
+      {children ?? <p className="text-muted-foreground">هذه الصفحة قيد الإعداد.</p>}
+    </main>
+  );
+}
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"\\"} component={Home} />
+      <Route path="/" component={Home} />
       <Route path="/browse" component={Browse} />
-      <Route path="/search" component={() => <div className="container py-20"><h1>نتائج البحث</h1></div>} />
-      <Route path="/categories" component={() => <div className="container py-20"><h1>التصنيفات</h1></div>} />
-      <Route path="/publishers" component={() => <div className="container py-20"><h1>الناشرون</h1></div>} />
-      <Route path="/dashboard" component={() => <div className="container py-20"><h1>لوحة التحكم</h1></div>} />
+      <Route path="/search" component={SearchBooks} />
+      <Route path="/books/:slug" component={BookDetail} />
+      <Route path="/books/:bookId/reviews" component={Reviews} />
+      <Route path="/authors/:userId" component={AuthorProfile} />
+      <Route path="/publishers/:publisherId" component={PublisherProfile} />
+      <Route path="/bookstores/:bookstoreId" component={BookstoreProfile} />
       <Route path="/profile" component={Profile} />
-      <Route path="/publisher-signup" component={() => <div className="container py-20"><h1>تسجيل ناشر</h1></div>} />
-      <Route path="/library-signup" component={() => <div className="container py-20"><h1>تسجيل مكتبة</h1></div>} />
-      <Route path="/about" component={() => <div className="container py-20"><h1>عن المنصة</h1></div>} />
-      <Route path="/contact" component={() => <div className="container py-20"><h1>اتصل بنا</h1></div>} />
-      <Route path="/privacy" component={() => <div className="container py-20"><h1>سياسة الخصوصية</h1></div>} />
-      <Route path="/terms" component={() => <div className="container py-20"><h1>شروط الاستخدام</h1></div>} />
-      <Route path="/copyright" component={() => <div className="container py-20"><h1>حقوق النشر</h1></div>} />
-      <Route path="/404" component={NotFound} />
-      {/* Final fallback route */}
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/dashboard" component={AdminDashboard} />
+      <Route path="/orders" component={Orders} />
+      <Route path="/advertisements" component={AdvertisementManagement} />
+      <Route path="/featured-listings" component={FeaturedListingManagement} />
+      <Route path="/subscriptions" component={Subscriptions} />
+      <Route path="/payments" component={PaymentManagement} />
+      <Route path="/payment-test" component={PaymentTest} />
+      <Route path="/categories" component={Browse} />
+      <Route path="/publishers" component={() => <StaticPage title="الناشرون" />} />
+      <Route path="/publisher-signup" component={() => <StaticPage title="تسجيل ناشر" />} />
+      <Route path="/library-signup" component={() => <StaticPage title="تسجيل مكتبة" />} />
+      <Route path="/about" component={() => <StaticPage title="عن BookHub" />} />
+      <Route path="/contact" component={() => <StaticPage title="اتصل بنا" />} />
+      <Route path="/privacy" component={() => <StaticPage title="سياسة الخصوصية" />} />
+      <Route path="/terms" component={() => <StaticPage title="شروط الاستخدام" />} />
+      <Route path="/copyright" component={() => <StaticPage title="حقوق النشر" />} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
