@@ -4,435 +4,133 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import {
-  getUserByOpenId,
-  getUserById,
-  getCategories,
-  searchListings,
-  getListingById,
-  getUserListings,
-  getConversation,
-  getUserConversations,
-  getConversationMessages,
-  getUserFavorites,
-  getUserFollowing,
-  getUserFollowers,
-  getSubscriptionPlans,
-  getUserActiveSubscription,
-  getUserNotifications,
-  getUnreadNotificationsCount,
-  getUserRatings,
-  getUserAverageRating,
-  getAuthorProfile,
-  getLibraryProfile,
-  getPublisherProfile,
+  getUserById, getCategories, searchListings, getListingById, getUserListings,
+  getUserConversations, getConversationMessages, getUserFavorites, getUserFollowing,
+  getUserFollowers, getSubscriptionPlans, getUserActiveSubscription, getUserNotifications,
+  getUnreadNotificationsCount, getUserRatings, getUserAverageRating, getAuthorProfile,
+  getLibraryProfile, getPublisherProfile, updateAuthorProfile, updateLibraryProfile,
+  updatePublisherProfile,
 } from "./db";
+import {
+  createListing, updateListing, deleteListing, sendMessage, markMessageRead,
+  addFavorite, removeFavorite, followUser, unfollowUser, markNotificationRead,
+  createRating, subscribeToPlan, cancelSubscription,
+} from "./marketplace";
 import { TRPCError } from "@trpc/server";
 
 export const appRouter = router({
   system: systemRouter,
 
-  /**
-   * ===== مسارات المصادقة =====
-   */
   auth: router({
-    me: publicProcedure.query(async (opts) => {
-      if (!opts.ctx.user) return null;
-      return opts.ctx.user;
-    }),
-
+    me: publicProcedure.query(async ({ ctx }) => ctx.user ?? null),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
-
     profile: protectedProcedure.query(async ({ ctx }) => {
       const user = await getUserById(ctx.user.id);
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
-
       let profile = null;
-      if (user.role === "author") {
-        profile = await getAuthorProfile(user.id);
-      } else if (user.role === "library") {
-        profile = await getLibraryProfile(user.id);
-      } else if (user.role === "publisher") {
-        profile = await getPublisherProfile(user.id);
-      }
-
+      if (user.role === "author") profile = await getAuthorProfile(user.id);
+      else if (user.role === "library") profile = await getLibraryProfile(user.id);
+      else if (user.role === "publisher") profile = await getPublisherProfile(user.id);
       return { user, profile };
     }),
   }),
 
-  /**
-   * ===== مسارات الكتب والإعلانات =====
-   */
   books: router({
-    categories: publicProcedure.query(async () => {
-      return await getCategories();
+    categories: publicProcedure.query(() => getCategories()),
+    search: publicProcedure.input(z.object({
+      query: z.string().min(1), categoryId: z.number().optional(), country: z.string().optional(),
+      language: z.string().optional(), type: z.enum(["paper", "digital", "external_link"]).optional(),
+      minPrice: z.number().optional(), maxPrice: z.number().optional(), limit: z.number().default(20), offset: z.number().default(0),
+    })).query(({ input }) => searchListings(input.query, input)),
+    getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      const listing = await getListingById(input.id);
+      if (!listing) throw new TRPCError({ code: "NOT_FOUND" });
+      return listing;
     }),
-
-    search: publicProcedure
-      .input(
-        z.object({
-          query: z.string().min(1),
-          categoryId: z.number().optional(),
-          country: z.string().optional(),
-          language: z.string().optional(),
-          type: z.enum(["paper", "digital", "external_link"]).optional(),
-          minPrice: z.number().optional(),
-          maxPrice: z.number().optional(),
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ input }) => {
-        return await searchListings(input.query, {
-          categoryId: input.categoryId,
-          country: input.country,
-          language: input.language,
-          type: input.type,
-          minPrice: input.minPrice,
-          maxPrice: input.maxPrice,
-          limit: input.limit,
-          offset: input.offset,
-        });
-      }),
-
-    getById: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        const listing = await getListingById(input.id);
-        if (!listing) throw new TRPCError({ code: "NOT_FOUND" });
-        return listing;
-      }),
-
-    getUserListings: publicProcedure
-      .input(
-        z.object({
-          userId: z.number(),
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ input }) => {
-        return await getUserListings(input.userId, input.limit, input.offset);
-      }),
-
-    create: protectedProcedure
-      .input(
-        z.object({
-          bookId: z.number(),
-          type: z.enum(["paper", "digital", "external_link"]),
-          condition: z.enum(["new", "like_new", "good", "fair"]).optional(),
-          price: z.number().positive(),
-          currency: z.string().default("USD"),
-          country: z.string(),
-          externalLink: z.string().optional(),
-          externalPlatform: z.string().optional(),
-          description: z.string().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إنشاء إعلان جديد
-        return { success: true, listingId: 1 };
-      }),
-
-    update: protectedProcedure
-      .input(
-        z.object({
-          listingId: z.number(),
-          price: z.number().optional(),
-          description: z.string().optional(),
-          status: z.enum(["active", "sold", "archived"]).optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ تحديث الإعلان
-        return { success: true };
-      }),
-
-    delete: protectedProcedure
-      .input(z.object({ listingId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ حذف الإعلان
-        return { success: true };
-      }),
+    getUserListings: publicProcedure.input(z.object({ userId: z.number(), limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ input }) => getUserListings(input.userId, input.limit, input.offset)),
+    create: protectedProcedure.input(z.object({
+      bookId: z.number().int().positive(), type: z.enum(["paper", "digital", "external_link"]),
+      condition: z.enum(["new", "like_new", "good", "fair"]).optional(), price: z.number().positive(),
+      currency: z.string().min(1).max(10).default("USD"), country: z.string().min(1).max(100),
+      externalLink: z.string().url().optional(), externalPlatform: z.string().max(100).optional(), description: z.string().max(10000).optional(),
+    })).mutation(({ ctx, input }) => createListing(ctx.user.id, input)),
+    update: protectedProcedure.input(z.object({
+      listingId: z.number().int().positive(), price: z.number().positive().optional(),
+      description: z.string().max(10000).optional(), status: z.enum(["active", "sold", "archived"]).optional(),
+    })).mutation(({ ctx, input }) => updateListing(ctx.user.id, input.listingId, input)),
+    delete: protectedProcedure.input(z.object({ listingId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) => deleteListing(ctx.user.id, input.listingId)),
   }),
 
-  /**
-   * ===== مسارات الرسائل =====
-   */
   messages: router({
-    conversations: protectedProcedure
-      .input(
-        z.object({
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
+    conversations: protectedProcedure.input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ ctx, input }) => getUserConversations(ctx.user.id, input.limit, input.offset)),
+    getConversationMessages: protectedProcedure.input(z.object({ conversationId: z.number(), limit: z.number().default(50), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
-        return await getUserConversations(ctx.user.id, input.limit, input.offset);
+        const rows = await getUserConversations(ctx.user.id, 1000, 0);
+        if (!rows.some((row: any) => row.conversations.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" });
+        return getConversationMessages(input.conversationId, input.limit, input.offset);
       }),
-
-    getConversationMessages: protectedProcedure
-      .input(
-        z.object({
-          conversationId: z.number(),
-          limit: z.number().default(50),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ input }) => {
-        return await getConversationMessages(input.conversationId, input.limit, input.offset);
-      }),
-
-    sendMessage: protectedProcedure
-      .input(
-        z.object({
-          conversationId: z.number(),
-          content: z.string().min(1).max(5000),
-          image: z.string().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إرسال الرسالة
-        return { success: true, messageId: 1 };
-      }),
-
-    markAsRead: protectedProcedure
-      .input(z.object({ messageId: z.number() }))
-      .mutation(async ({ input }) => {
-        // TODO: تنفيذ تحديث حالة القراءة
-        return { success: true };
-      }),
+    sendMessage: protectedProcedure.input(z.object({ conversationId: z.number(), content: z.string().trim().min(1).max(5000), image: z.string().url().optional() }))
+      .mutation(({ ctx, input }) => sendMessage(ctx.user.id, input.conversationId, input.content, input.image)),
+    markAsRead: protectedProcedure.input(z.object({ messageId: z.number() }))
+      .mutation(({ ctx, input }) => markMessageRead(ctx.user.id, input.messageId)),
   }),
 
-  /**
-   * ===== مسارات المفضلة والمتابعة =====
-   */
   favorites: router({
-    list: protectedProcedure
-      .input(
-        z.object({
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ ctx, input }) => {
-        return await getUserFavorites(ctx.user.id, input.limit, input.offset);
-      }),
-
-    add: protectedProcedure
-      .input(z.object({ listingId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إضافة إلى المفضلة
-        return { success: true };
-      }),
-
-    remove: protectedProcedure
-      .input(z.object({ listingId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إزالة من المفضلة
-        return { success: true };
-      }),
+    list: protectedProcedure.input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ ctx, input }) => getUserFavorites(ctx.user.id, input.limit, input.offset)),
+    add: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => addFavorite(ctx.user.id, input.listingId)),
+    remove: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => removeFavorite(ctx.user.id, input.listingId)),
   }),
 
   follows: router({
-    following: protectedProcedure
-      .input(
-        z.object({
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ ctx, input }) => {
-        return await getUserFollowing(ctx.user.id, input.limit, input.offset);
-      }),
-
-    followers: publicProcedure
-      .input(
-        z.object({
-          userId: z.number(),
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ input }) => {
-        return await getUserFollowers(input.userId, input.limit, input.offset);
-      }),
-
-    follow: protectedProcedure
-      .input(z.object({ userId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ متابعة مستخدم
-        return { success: true };
-      }),
-
-    unfollow: protectedProcedure
-      .input(z.object({ userId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إلغاء متابعة مستخدم
-        return { success: true };
-      }),
+    following: protectedProcedure.input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ ctx, input }) => getUserFollowing(ctx.user.id, input.limit, input.offset)),
+    followers: publicProcedure.input(z.object({ userId: z.number(), limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ input }) => getUserFollowers(input.userId, input.limit, input.offset)),
+    follow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => followUser(ctx.user.id, input.userId)),
+    unfollow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => unfollowUser(ctx.user.id, input.userId)),
   }),
 
-  /**
-   * ===== مسارات الاشتراكات =====
-   */
   subscriptions: router({
-    plans: publicProcedure.query(async () => {
-      return await getSubscriptionPlans();
-    }),
-
-    active: protectedProcedure.query(async ({ ctx }) => {
-      return await getUserActiveSubscription(ctx.user.id);
-    }),
-
-    subscribe: protectedProcedure
-      .input(z.object({ planId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ الاشتراك في خطة
-        return { success: true, subscriptionId: 1 };
-      }),
-
-    cancel: protectedProcedure
-      .input(z.object({ subscriptionId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إلغاء الاشتراك
-        return { success: true };
-      }),
+    plans: publicProcedure.query(() => getSubscriptionPlans()),
+    active: protectedProcedure.query(({ ctx }) => getUserActiveSubscription(ctx.user.id)),
+    subscribe: protectedProcedure.input(z.object({ planId: z.number().int().positive() })).mutation(({ ctx, input }) => subscribeToPlan(ctx.user.id, input.planId)),
+    cancel: protectedProcedure.input(z.object({ subscriptionId: z.number().int().positive() })).mutation(({ ctx, input }) => cancelSubscription(ctx.user.id, input.subscriptionId)),
   }),
 
-  /**
-   * ===== مسارات الإشعارات =====
-   */
   notifications: router({
-    list: protectedProcedure
-      .input(
-        z.object({
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ ctx, input }) => {
-        return await getUserNotifications(ctx.user.id, input.limit, input.offset);
-      }),
-
-    unreadCount: protectedProcedure.query(async ({ ctx }) => {
-      return await getUnreadNotificationsCount(ctx.user.id);
-    }),
-
-    markAsRead: protectedProcedure
-      .input(z.object({ notificationId: z.number() }))
-      .mutation(async ({ input }) => {
-        // TODO: تنفيذ تحديث حالة الإشعار
-        return { success: true };
-      }),
+    list: protectedProcedure.input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ ctx, input }) => getUserNotifications(ctx.user.id, input.limit, input.offset)),
+    unreadCount: protectedProcedure.query(({ ctx }) => getUnreadNotificationsCount(ctx.user.id)),
+    markAsRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) => markNotificationRead(ctx.user.id, input.notificationId)),
   }),
 
-  /**
-   * ===== مسارات التقييمات =====
-   */
   ratings: router({
-    userRatings: publicProcedure
-      .input(
-        z.object({
-          userId: z.number(),
-          limit: z.number().default(20),
-          offset: z.number().default(0),
-        })
-      )
-      .query(async ({ input }) => {
-        return await getUserRatings(input.userId, input.limit, input.offset);
-      }),
-
-    userAverageRating: publicProcedure
-      .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
-        return await getUserAverageRating(input.userId);
-      }),
-
-    create: protectedProcedure
-      .input(
-        z.object({
-          targetUserId: z.number(),
-          listingId: z.number().optional(),
-          rating: z.number().min(1).max(5),
-          comment: z.string().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ إنشاء تقييم
-        return { success: true, ratingId: 1 };
-      }),
+    userRatings: publicProcedure.input(z.object({ userId: z.number(), limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(({ input }) => getUserRatings(input.userId, input.limit, input.offset)),
+    userAverageRating: publicProcedure.input(z.object({ userId: z.number() })).query(({ input }) => getUserAverageRating(input.userId)),
+    create: protectedProcedure.input(z.object({ targetUserId: z.number().int().positive(), listingId: z.number().int().positive().optional(), rating: z.number().int().min(1).max(5), comment: z.string().max(5000).optional() }))
+      .mutation(({ ctx, input }) => createRating(ctx.user.id, input)),
   }),
 
-  /**
-   * ===== مسارات الملفات الشخصية =====
-   */
   profiles: router({
-    author: publicProcedure
-      .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
-        return await getAuthorProfile(input.userId);
-      }),
-
-    library: publicProcedure
-      .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
-        return await getLibraryProfile(input.userId);
-      }),
-
-    publisher: publicProcedure
-      .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
-        return await getPublisherProfile(input.userId);
-      }),
-
-    updateAuthor: protectedProcedure
-      .input(
-        z.object({
-          website: z.string().optional(),
-          bio: z.string().optional(),
-          socialLinks: z.record(z.string(), z.string()).optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ تحديث ملف المؤلف
-        return { success: true };
-      }),
-
-    updateLibrary: protectedProcedure
-      .input(
-        z.object({
-          libraryName: z.string().optional(),
-          website: z.string().optional(),
-          address: z.string().optional(),
-          phone: z.string().optional(),
-          email: z.string().optional(),
-          bio: z.string().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ تحديث ملف المكتبة
-        return { success: true };
-      }),
-
-    updatePublisher: protectedProcedure
-      .input(
-        z.object({
-          publisherName: z.string().optional(),
-          website: z.string().optional(),
-          address: z.string().optional(),
-          phone: z.string().optional(),
-          email: z.string().optional(),
-          bio: z.string().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // TODO: تنفيذ تحديث ملف الناشر
-        return { success: true };
-      }),
+    author: publicProcedure.input(z.object({ userId: z.number() })).query(({ input }) => getAuthorProfile(input.userId)),
+    library: publicProcedure.input(z.object({ userId: z.number() })).query(({ input }) => getLibraryProfile(input.userId)),
+    publisher: publicProcedure.input(z.object({ userId: z.number() })).query(({ input }) => getPublisherProfile(input.userId)),
+    updateAuthor: protectedProcedure.input(z.object({ website: z.string().url().optional(), bio: z.string().max(10000).optional(), socialLinks: z.record(z.string(), z.string()).optional() }))
+      .mutation(({ ctx, input }) => updateAuthorProfile(ctx.user.id, input)),
+    updateLibrary: protectedProcedure.input(z.object({ libraryName: z.string().min(1).max(255).optional(), website: z.string().url().optional(), address: z.string().max(1000).optional(), phone: z.string().max(30).optional(), email: z.string().email().optional(), bio: z.string().max(10000).optional() }))
+      .mutation(({ ctx, input }) => updateLibraryProfile(ctx.user.id, input)),
+    updatePublisher: protectedProcedure.input(z.object({ publisherName: z.string().min(1).max(255).optional(), website: z.string().url().optional(), address: z.string().max(1000).optional(), phone: z.string().max(30).optional(), email: z.string().email().optional(), bio: z.string().max(10000).optional() }))
+      .mutation(({ ctx, input }) => updatePublisherProfile(ctx.user.id, input)),
   }),
 });
 
