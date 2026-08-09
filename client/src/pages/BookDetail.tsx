@@ -2,267 +2,81 @@ import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Star, ShoppingCart, Share2, Heart } from "lucide-react";
-import { useState } from "react";
+import { Heart, Share2, ExternalLink, ArrowRight } from "lucide-react";
+import { useToastNotification } from "@/hooks/useToastNotification";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function BookDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const listingId = Number(slug);
+  const { user } = useAuth();
+  const { showSuccess, showError } = useToastNotification();
+  const { data: book, isLoading } = trpc.books.getById.useQuery({ id: listingId }, { enabled: Number.isInteger(listingId) && listingId > 0 });
+  const { data: favorites } = trpc.favorites.list.useQuery({ limit: 100, offset: 0 }, { enabled: !!user });
+  const addFavorite = trpc.favorites.add.useMutation({ onSuccess: () => { showSuccess("تمت إضافة الإعلان إلى المفضلة"); favoritesQuery.refetch(); }, onError: (e) => showError("تعذر إضافة المفضلة", { description: e.message }) });
+  const removeFavorite = trpc.favorites.remove.useMutation({ onSuccess: () => { showSuccess("تمت إزالة الإعلان من المفضلة"); favoritesQuery.refetch(); }, onError: (e) => showError("تعذر إزالة المفضلة", { description: e.message }) });
+  const favoritesQuery = trpc.favorites.list.useQuery({ limit: 100, offset: 0 }, { enabled: !!user });
+  const isFavorite = !!book && !!favoritesQuery.data?.some((fav: any) => fav.listings?.id === book.id || fav.listing?.id === book.id);
 
-  // Fetch book details
-  const { data: book, isLoading: isBookLoading } = trpc.books.getBySlug.useQuery(
-    { slug: slug || "" },
-    { enabled: !!slug }
-  );
+  const toggleFavorite = () => {
+    if (!user) { showError("يجب تسجيل الدخول", { description: "سجل الدخول أولًا لإضافة الإعلان إلى المفضلة" }); return; }
+    if (!book) return;
+    if (isFavorite) removeFavorite.mutate({ listingId: book.id }); else addFavorite.mutate({ listingId: book.id });
+  };
 
-  // Fetch reviews
-  const { data: reviews } = trpc.reviews.getByBook.useQuery(
-    { bookId: book?.id || 0, limit: 20 },
-    { enabled: !!book?.id }
-  );
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showSuccess("تم نسخ رابط الإعلان");
+    } catch {
+      showError("تعذر نسخ الرابط");
+    }
+  };
 
-  if (isBookLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <p className="text-muted-foreground">جاري التحميل...</p>
-      </div>
-    );
-  }
-
-  if (!book) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <p className="text-muted-foreground">لم يتم العثور على الكتاب</p>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">جاري تحميل الإعلان...</div>;
+  if (!book) return <div className="min-h-screen flex items-center justify-center">لم يتم العثور على الإعلان.</div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pattern-deco">
-      {/* Header */}
-      <header className="border-b-2 border-primary bg-background shadow-lg">
-        <div className="container mx-auto flex items-center justify-between py-6">
-          <a href="/" className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-primary">BookHub</h1>
-          </a>
-          <Button variant="outline" className="border-primary text-primary">
-            العودة
-          </Button>
+    <main className="min-h-screen bg-background text-foreground">
+      <header className="border-b bg-background sticky top-0 z-40">
+        <div className="container mx-auto flex items-center justify-between py-5">
+          <a href="/" className="text-2xl font-bold text-primary">BookHub</a>
+          <a href="/search" className="inline-flex items-center gap-2"><ArrowRight className="h-4 w-4" /> العودة للبحث</a>
         </div>
       </header>
-
-      {/* Book Details */}
-      <section className="container mx-auto py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Book Cover */}
-          <div className="md:col-span-1">
-            <div className="frame-gold sticky top-8">
-              {book.cover && (
-                <img
-                  src={book.cover}
-                  alt={book.title}
-                  className="w-full h-auto mb-6 rounded"
-                />
-              )}
-              <div className="space-y-3">
-                <Button className="btn-luxury w-full">
-                  <ShoppingCart className="h-5 w-5 ml-2" />
-                  إضافة إلى السلة
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                  onClick={() => setIsFavorite(!isFavorite)}
-                >
-                  <Heart
-                    className={`h-5 w-5 ml-2 ${isFavorite ? "fill-current" : ""}`}
-                  />
-                  {isFavorite ? "مفضل" : "إضافة للمفضلة"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full border-primary text-primary"
-                >
-                  <Share2 className="h-5 w-5 ml-2" />
-                  مشاركة
-                </Button>
-              </div>
+      <section className="container mx-auto py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Card className="p-5 lg:sticky lg:top-24 h-fit">
+            {book.cover ? <img src={book.cover} alt={book.title} className="w-full rounded-lg object-cover max-h-[620px]" /> : <div className="aspect-[3/4] rounded-lg bg-muted flex items-center justify-center">لا توجد صورة للغلاف</div>}
+            <div className="grid grid-cols-2 gap-3 mt-5">
+              <Button onClick={toggleFavorite} variant={isFavorite ? "default" : "outline"} disabled={addFavorite.isPending || removeFavorite.isPending} className="gap-2"><Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />{isFavorite ? "مفضل" : "مفضلة"}</Button>
+              <Button onClick={share} variant="outline" className="gap-2"><Share2 className="h-4 w-4" />مشاركة</Button>
             </div>
-          </div>
+            {book.externalLink && <Button asChild className="w-full mt-3 gap-2"><a href={book.externalLink} target="_blank" rel="noopener noreferrer">فتح الرابط الخارجي <ExternalLink className="h-4 w-4" /></a></Button>}
+          </Card>
 
-          {/* Book Info */}
-          <div className="md:col-span-2">
-            <div className="frame-gold">
-              <h1 className="text-4xl font-bold mb-4 text-primary">{book.title}</h1>
-
-              {/* Author and Publisher */}
-              <div className="mb-6 pb-6 border-b-2 border-primary">
-                <p className="text-lg text-muted-foreground mb-2">
-                  <span className="font-semibold text-foreground">المؤلف:</span> المؤلف
-                </p>
-                {book.publisherId && (
-                  <p className="text-lg text-muted-foreground">
-                    <span className="font-semibold text-foreground">الناشر:</span> الناشر
-                  </p>
-                )}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="p-7">
+              <div className="flex flex-wrap items-center gap-2 mb-4"><span className="rounded-full bg-primary/10 px-3 py-1 text-sm">{book.type ?? book.format}</span><span className="rounded-full border px-3 py-1 text-sm">{book.status}</span>{book.isPremium && <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-sm">إعلان مميز</span>}</div>
+              <h1 className="text-4xl font-bold mb-3">{book.title}</h1>
+              <p className="text-xl text-muted-foreground mb-6">{book.author}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-y py-5 mb-6">
+                <div><div className="text-xs text-muted-foreground">السعر</div><div className="font-bold text-primary text-lg">{book.price} {book.currency}</div></div>
+                <div><div className="text-xs text-muted-foreground">الدولة</div><div className="font-semibold">{book.country}</div></div>
+                <div><div className="text-xs text-muted-foreground">اللغة</div><div className="font-semibold">{book.language || "-"}</div></div>
+                <div><div className="text-xs text-muted-foreground">ISBN</div><div className="font-semibold text-sm">{book.isbn || "-"}</div></div>
               </div>
-
-              {/* Rating */}
-              <div className="mb-6 flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-5 w-5 ${
-                        i < Math.floor(Number(book.rating) || 0)
-                          ? "fill-primary text-primary"
-                          : "text-muted-foreground"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-lg font-semibold">{book.rating || 0} / 5</span>
-                <span className="text-muted-foreground">({book.reviewCount || 0} تقييم)</span>
-              </div>
-
-              {/* Book Details */}
-              <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b-2 border-primary">
-                <div>
-                  <p className="text-sm text-muted-foreground">اللغة</p>
-                  <p className="font-semibold">{book.language === "ar" ? "العربية" : book.language}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">الصيغة</p>
-                  <p className="font-semibold">{book.format || "رقمية"}</p>
-                </div>
-                {book.pages && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">عدد الصفحات</p>
-                    <p className="font-semibold">{book.pages}</p>
-                  </div>
-                )}
-                {book.isbn && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">ISBN</p>
-                    <p className="font-semibold text-xs">{book.isbn}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Price */}
-              <div className="mb-6">
-                <p className="text-sm text-muted-foreground mb-2">السعر</p>
-                <p className="text-3xl font-bold text-primary">
-                  {book.price} {book.currency}
-                </p>
-              </div>
-
-              {/* Description */}
-              <div className="mb-6">
-                <h3 className="text-xl font-bold mb-3 text-primary">الوصف</h3>
-                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                  {book.description || "لا يوجد وصف متاح"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Reviews Section */}
-      <section className="container mx-auto py-12 border-t-2 border-primary">
-        <h2 className="text-3xl font-bold mb-8 text-primary">التقييمات والآراء</h2>
-
-        <Tabs defaultValue="reviews" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="reviews" className="text-lg">
-              التقييمات ({reviews?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="write" className="text-lg">
-              كتابة تقييم
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="reviews">
-            {reviews && reviews.length > 0 ? (
-              <div className="space-y-6">
-                {reviews.map((review) => (
-                  <div key={review.id} className="frame-gold">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-lg">{review.title}</p>
-                        <p className="text-sm text-muted-foreground">بواسطة مستخدم</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < review.rating
-                                ? "fill-primary text-primary"
-                                : "text-muted-foreground"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-foreground mb-3">{review.content}</p>
-                    {review.isVerifiedPurchase && (
-                      <p className="text-xs text-primary font-semibold">✓ شراء موثق</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">لا توجد تقييمات حتى الآن</p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="write">
-            <Card className="frame-gold">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">التقييم</label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <button key={i} className="text-2xl hover:text-primary transition-colors">
-                        ★
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">العنوان</label>
-                  <input
-                    type="text"
-                    placeholder="عنوان التقييم"
-                    className="w-full px-4 py-2 bg-input text-foreground border-2 border-primary rounded"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">التعليق</label>
-                  <textarea
-                    placeholder="شارك رأيك عن الكتاب"
-                    rows={5}
-                    className="w-full px-4 py-2 bg-input text-foreground border-2 border-primary rounded"
-                  />
-                </div>
-                <Button className="btn-luxury w-full">إرسال التقييم</Button>
-              </div>
+              <h2 className="text-2xl font-bold mb-3">عن الكتاب</h2>
+              <p className="leading-8 whitespace-pre-wrap">{book.description || "لا يوجد وصف متاح لهذا الإعلان."}</p>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </section>
 
-      {/* Footer */}
-      <footer className="border-t-2 border-primary bg-secondary py-12 mt-12">
-        <div className="container mx-auto text-center text-muted-foreground">
-          <p>&copy; 2026 BookHub. جميع الحقوق محفوظة.</p>
+            <Card className="p-7">
+              <h2 className="text-2xl font-bold mb-5">بيانات المعلن</h2>
+              <div className="flex items-center gap-4"><div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center font-bold">{book.seller?.name?.[0] || "U"}</div><div><div className="font-semibold">{book.seller?.name || "مستخدم"}</div><div className="text-sm text-muted-foreground">{book.seller?.role || "معلن"}</div></div></div>
+            </Card>
+          </div>
         </div>
-      </footer>
-    </div>
+      </section>
+    </main>
   );
 }
