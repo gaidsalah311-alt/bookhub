@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -21,7 +22,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-function StaticPage({ title, children }: { title: string; children?: React.ReactNode }) {
+function StaticPage({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <main className="container py-20 text-center">
       <h1 className="text-3xl font-bold mb-4">{title}</h1>
