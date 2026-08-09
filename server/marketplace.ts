@@ -7,10 +7,7 @@ function requireDb(db: Awaited<ReturnType<typeof getDb>>) {
   return db;
 }
 
-export async function createListing(userId: number, data: {
-  bookId: number; type: "paper" | "digital" | "external_link"; condition?: "new" | "like_new" | "good" | "fair";
-  price: number; currency: string; country: string; externalLink?: string; externalPlatform?: string; description?: string;
-}) {
+export async function createListing(userId: number, data: { bookId: number; type: "paper" | "digital" | "external_link"; condition?: "new" | "like_new" | "good" | "fair"; price: number; currency: string; country: string; externalLink?: string; externalPlatform?: string; description?: string; }) {
   const db = requireDb(await getDb());
   const book = await db.select({ id: books.id }).from(books).where(eq(books.id, data.bookId)).limit(1);
   if (!book.length) throw new Error("الكتاب غير موجود");
@@ -112,9 +109,10 @@ export async function subscribeToPlan(userId: number, planId: number) {
   const db = requireDb(await getDb());
   const plan = await db.select().from(subscriptionPlans).where(and(eq(subscriptionPlans.id, planId), eq(subscriptionPlans.isActive, true))).limit(1);
   if (!plan.length) throw new Error("الخطة غير موجودة أو غير مفعلة");
+  if (Number(plan[0].price) > 0) throw new Error("لا يمكن تفعيل اشتراك مدفوع قبل تأكيد الدفع عبر مزود الدفع المرتبط");
   const startDate = new Date();
   const endDate = new Date(startDate.getTime() + plan[0].duration * 24 * 60 * 60 * 1000);
-  const result = await db.insert(subscriptions).values({ userId, planId, status: "active", startDate, endDate, autoRenew: true });
+  const result = await db.insert(subscriptions).values({ userId, planId, status: "active", startDate, endDate, autoRenew: false, paymentMethod: "free" });
   return { success: true as const, subscriptionId: Number((result as any)[0]?.insertId) };
 }
 
