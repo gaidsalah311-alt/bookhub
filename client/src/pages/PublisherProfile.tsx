@@ -23,7 +23,7 @@ export default function PublisherProfile() {
       <header className="border-b-2 border-primary bg-background shadow-lg"><div className="container mx-auto flex items-center justify-between py-6"><a href="/" className="text-2xl font-bold text-primary">BookHub</a><Button variant="outline" className="border-primary text-primary" onClick={() => window.history.back()}>العودة</Button></div></header>
       <section className="container mx-auto py-12"><div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1"><div className="frame-gold sticky top-8">
-          {(publisher.logo || publisher.profileImage) && <img src={publisher.logo || publisher.profileImage || ""} alt={publisher.publisherName} className="w-full h-48 object-cover mb-6 rounded" />}
+          {(publisher.logo || publisher.profileImage) && <img src={publisher.logo || publisher.profileImage || ""} alt={publisher.publisherName || "الناشر"} className="w-full h-48 object-cover mb-6 rounded" />}
           <h1 className="text-3xl font-bold mb-4 text-primary">{publisher.publisherName || "الناشر"}</h1>
           <p className="text-muted-foreground mb-6 leading-relaxed">{publisher.bio || "لا توجد معلومات متاحة"}</p>
           {publisher.website && <div className="flex items-center gap-3 mb-4"><Globe className="h-5 w-5 text-primary" /><a href={publisher.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">الموقع الرسمي</a></div>}
