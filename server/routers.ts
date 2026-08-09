@@ -4,44 +4,15 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { getUserById, getCategories, searchListings, getListingById, getUserListings, getUserConversations, getConversationMessages, getUserFavorites, getUserFollowing, getUserFollowers, getSubscriptionPlans, getUserActiveSubscription, getUserNotifications, getUnreadNotificationsCount, getUserRatings, getUserAverageRating, getAuthorProfile, getLibraryProfile, getPublisherProfile, updateAuthorProfile, updateLibraryProfile, updatePublisherProfile } from "./db";
+import { createBook } from "./books";
 import { createListing, updateListing, deleteListing, sendMessage, markMessageRead, addFavorite, removeFavorite, followUser, unfollowUser, markNotificationRead, createRating, subscribeToPlan, cancelSubscription, createReport, listReports, resolveReport } from "./marketplace";
 import { TRPCError } from "@trpc/server";
 
 const pagination = { limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) };
 
 function normalizeListing(row: any) {
-  const listing = row?.listings ?? row?.listing ?? row;
-  const book = row?.books ?? row?.book ?? {};
-  const user = row?.users ?? row?.user ?? {};
-  return {
-    id: listing.id,
-    slug: String(listing.id),
-    title: book.title,
-    author: book.author,
-    description: book.description,
-    cover: book.coverImage ?? null,
-    language: book.language,
-    isbn: book.isbn,
-    publishDate: book.publishDate,
-    publisher: book.publisher,
-    pages: book.pages,
-    format: listing.type,
-    price: listing.price,
-    currency: listing.currency,
-    country: listing.country,
-    condition: listing.condition,
-    externalLink: listing.externalLink,
-    externalPlatform: listing.externalPlatform,
-    status: listing.status,
-    isPremium: listing.isPremium,
-    premiumTier: listing.premiumTier,
-    premiumExpires: listing.premiumExpires,
-    expiresAt: listing.expiresAt,
-    views: listing.views ?? 0,
-    shares: listing.shares ?? 0,
-    favorites: listing.favorites ?? 0,
-    seller: { id: user.id, name: user.name, role: user.role, profileImage: user.profileImage },
-  };
+  const listing = row?.listings ?? row?.listing ?? row; const book = row?.books ?? row?.book ?? {}; const user = row?.users ?? row?.user ?? {};
+  return { id: listing.id, slug: String(listing.id), title: book.title, author: book.author, description: book.description, cover: book.coverImage ?? null, language: book.language, isbn: book.isbn, publishDate: book.publishDate, publisher: book.publisher, pages: book.pages, format: listing.type, price: listing.price, currency: listing.currency, country: listing.country, condition: listing.condition, externalLink: listing.externalLink, externalPlatform: listing.externalPlatform, status: listing.status, isPremium: listing.isPremium, premiumTier: listing.premiumTier, premiumExpires: listing.premiumExpires, expiresAt: listing.expiresAt, views: listing.views ?? 0, shares: listing.shares ?? 0, favorites: listing.favorites ?? 0, seller: { id: user.id, name: user.name, role: user.role, profileImage: user.profileImage } };
 }
 
 export const appRouter = router({
@@ -56,16 +27,12 @@ export const appRouter = router({
     search: publicProcedure.input(z.object({ query: z.string().trim().min(1).max(200), categoryId: z.number().int().positive().optional(), country: z.string().max(100).optional(), language: z.string().max(10).optional(), type: z.enum(["paper", "digital", "external_link"]).optional(), minPrice: z.number().nonnegative().optional(), maxPrice: z.number().nonnegative().optional(), ...pagination })).query(async ({ input }) => (await searchListings(input.query, input)).map(normalizeListing)),
     getById: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => { const listing = await getListingById(input.id); if (!listing) throw new TRPCError({ code: "NOT_FOUND" }); return normalizeListing(listing); }),
     getUserListings: publicProcedure.input(z.object({ userId: z.number().int().positive(), ...pagination })).query(async ({ input }) => (await getUserListings(input.userId, input.limit, input.offset)).map(normalizeListing)),
+    createBook: protectedProcedure.input(z.object({ title: z.string().trim().min(1).max(255), author: z.string().trim().min(1).max(255), description: z.string().max(20000).optional(), categoryId: z.number().int().positive(), subcategoryId: z.number().int().positive().optional(), language: z.string().trim().min(2).max(10), isbn: z.string().trim().max(20).optional(), publishDate: z.coerce.date().optional(), publisher: z.string().trim().max(255).optional(), pages: z.number().int().positive().max(100000).optional(), coverImage: z.string().url().optional() })).mutation(({ input }) => createBook(input)),
     create: protectedProcedure.input(z.object({ bookId: z.number().int().positive(), type: z.enum(["paper", "digital", "external_link"]), condition: z.enum(["new", "like_new", "good", "fair"]).optional(), price: z.number().positive(), currency: z.string().trim().min(1).max(10), country: z.string().trim().min(1).max(100), externalLink: z.string().url().optional(), externalPlatform: z.string().trim().max(100).optional(), description: z.string().max(10000).optional() })).mutation(({ ctx, input }) => createListing(ctx.user.id, input)),
     update: protectedProcedure.input(z.object({ listingId: z.number().int().positive(), price: z.number().positive().optional(), description: z.string().max(10000).optional(), status: z.enum(["active", "sold", "archived"]).optional() })).mutation(({ ctx, input }) => updateListing(ctx.user.id, input.listingId, input)),
     delete: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => deleteListing(ctx.user.id, input.listingId)),
   }),
-  messages: router({
-    conversations: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserConversations(ctx.user.id, input.limit, input.offset)),
-    getConversationMessages: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), ...pagination })).query(async ({ ctx, input }) => { const rows = await getUserConversations(ctx.user.id, 100, 0); if (!rows.some((row: any) => row.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" }); return getConversationMessages(input.conversationId, input.limit, input.offset); }),
-    sendMessage: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), content: z.string().trim().min(1).max(5000), image: z.string().url().optional() })).mutation(({ ctx, input }) => sendMessage(ctx.user.id, input.conversationId, input.content, input.image)),
-    markAsRead: protectedProcedure.input(z.object({ messageId: z.number().int().positive() })).mutation(({ ctx, input }) => markMessageRead(ctx.user.id, input.messageId)),
-  }),
+  messages: router({ conversations: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserConversations(ctx.user.id, input.limit, input.offset)), getConversationMessages: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), ...pagination })).query(async ({ ctx, input }) => { const rows = await getUserConversations(ctx.user.id, 100, 0); if (!rows.some((row: any) => row.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" }); return getConversationMessages(input.conversationId, input.limit, input.offset); }), sendMessage: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), content: z.string().trim().min(1).max(5000), image: z.string().url().optional() })).mutation(({ ctx, input }) => sendMessage(ctx.user.id, input.conversationId, input.content, input.image)), markAsRead: protectedProcedure.input(z.object({ messageId: z.number().int().positive() })).mutation(({ ctx, input }) => markMessageRead(ctx.user.id, input.messageId)) }),
   favorites: router({ list: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserFavorites(ctx.user.id, input.limit, input.offset)), add: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => addFavorite(ctx.user.id, input.listingId)), remove: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => removeFavorite(ctx.user.id, input.listingId)) }),
   follows: router({ following: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserFollowing(ctx.user.id, input.limit, input.offset)), followers: publicProcedure.input(z.object({ userId: z.number().int().positive(), ...pagination })).query(({ input }) => getUserFollowers(input.userId, input.limit, input.offset)), follow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => followUser(ctx.user.id, input.userId)), unfollow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => unfollowUser(ctx.user.id, input.userId)) }),
   subscriptions: router({ plans: publicProcedure.query(() => getSubscriptionPlans()), active: protectedProcedure.query(({ ctx }) => getUserActiveSubscription(ctx.user.id)), subscribe: protectedProcedure.input(z.object({ planId: z.number().int().positive() })).mutation(({ ctx, input }) => subscribeToPlan(ctx.user.id, input.planId)), cancel: protectedProcedure.input(z.object({ subscriptionId: z.number().int().positive() })).mutation(({ ctx, input }) => cancelSubscription(ctx.user.id, input.subscriptionId)) }),
