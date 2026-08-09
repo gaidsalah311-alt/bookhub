@@ -18,6 +18,7 @@ import FeaturedListingManagement from "@/pages/FeaturedListingManagement";
 import Subscriptions from "@/pages/Subscriptions";
 import PaymentManagement from "@/pages/PaymentManagement";
 import PaymentTest from "@/pages/PaymentTest";
+import ReportsManagement from "@/pages/ReportsManagement";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/bookstores/:bookstoreId" component={BookstoreProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/reports" component={ReportsManagement} />
       <Route path="/dashboard" component={AdminDashboard} />
       <Route path="/orders" component={Orders} />
       <Route path="/advertisements" component={AdvertisementManagement} />
