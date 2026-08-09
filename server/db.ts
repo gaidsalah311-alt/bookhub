@@ -1,4 +1,4 @@
-import { eq, and, or, desc, asc, like, inArray, between, gte, lte } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, inArray, between, gte, lte, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -89,17 +89,17 @@ export async function getPendingReports(limit: number = 20, offset: number = 0) 
 
 export async function getAuthorProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...authorProfiles, name: users.name, profileImage: users.profileImage, email: users.email }).from(authorProfiles).innerJoin(users, eq(authorProfiles.userId, users.id)).where(eq(authorProfiles.userId, userId)).limit(1);
+  const result = await db.select({ ...getTableColumns(authorProfiles), name: users.name, profileImage: users.profileImage, email: users.email }).from(authorProfiles).innerJoin(users, eq(authorProfiles.userId, users.id)).where(eq(authorProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 export async function getLibraryProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...libraryProfiles, name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(libraryProfiles).innerJoin(users, eq(libraryProfiles.userId, users.id)).where(eq(libraryProfiles.userId, userId)).limit(1);
+  const result = await db.select({ ...getTableColumns(libraryProfiles), name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(libraryProfiles).innerJoin(users, eq(libraryProfiles.userId, users.id)).where(eq(libraryProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 export async function getPublisherProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
-  const result = await db.select({ ...publisherProfiles, name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(publisherProfiles).innerJoin(users, eq(publisherProfiles.userId, users.id)).where(eq(publisherProfiles.userId, userId)).limit(1);
+  const result = await db.select({ ...getTableColumns(publisherProfiles), name: users.name, profileImage: users.profileImage, userEmail: users.email }).from(publisherProfiles).innerJoin(users, eq(publisherProfiles.userId, users.id)).where(eq(publisherProfiles.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : null;
 }
 
