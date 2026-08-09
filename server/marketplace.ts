@@ -1,5 +1,5 @@
-import { and, desc, eq, or } from "drizzle-orm";
-import { books, conversations, favorites, follows, listings, messages, notifications, ratings, subscriptionPlans, subscriptions } from "../drizzle/schema";
+import { and, eq, or } from "drizzle-orm";
+import { books, conversations, favorites, follows, listings, messages, notifications, ratings, subscriptionPlans, subscriptions, users } from "../drizzle/schema";
 import { getDb } from "./db";
 
 function requireDb(db: Awaited<ReturnType<typeof getDb>>) {
@@ -15,17 +15,10 @@ export async function createListing(userId: number, data: {
   const book = await db.select({ id: books.id }).from(books).where(eq(books.id, data.bookId)).limit(1);
   if (!book.length) throw new Error("الكتاب غير موجود");
   const result = await db.insert(listings).values({
-    userId: userId,
-    bookId: data.bookId,
-    type: data.type,
-    condition: data.condition ?? "new",
-    price: data.price.toFixed(2),
-    currency: data.currency,
-    country: data.country,
-    externalLink: data.externalLink ?? null,
-    externalPlatform: data.externalPlatform ?? null,
-    description: data.description ?? null,
-    status: "pending_review",
+    userId, bookId: data.bookId, type: data.type, condition: data.condition ?? "new",
+    price: data.price.toFixed(2), currency: data.currency, country: data.country,
+    externalLink: data.externalLink ?? null, externalPlatform: data.externalPlatform ?? null,
+    description: data.description ?? null, status: "pending_review",
   });
   return { success: true as const, listingId: Number((result as any)[0]?.insertId) };
 }
@@ -85,8 +78,8 @@ export async function removeFavorite(userId: number, listingId: number) {
 export async function followUser(followerId: number, followingId: number) {
   const db = requireDb(await getDb());
   if (followerId === followingId) throw new Error("لا يمكنك متابعة نفسك");
-  const target = await db.select({ id: books.id }).from(books).limit(1);
-  void target;
+  const target = await db.select({ id: users.id }).from(users).where(eq(users.id, followingId)).limit(1);
+  if (!target.length) throw new Error("المستخدم غير موجود");
   const existing = await db.select({ id: follows.id }).from(follows).where(and(eq(follows.followerId, followerId), eq(follows.followingId, followingId))).limit(1);
   if (!existing.length) await db.insert(follows).values({ followerId, followingId });
   return { success: true as const };
@@ -108,8 +101,12 @@ export async function markNotificationRead(userId: number, notificationId: numbe
 export async function createRating(userId: number, data: { targetUserId: number; listingId?: number; rating: number; comment?: string }) {
   const db = requireDb(await getDb());
   if (userId === data.targetUserId) throw new Error("لا يمكنك تقييم نفسك");
-  const target = await db.select({ id: listings.userId }).from(listings).where(eq(listings.userId, data.targetUserId)).limit(1);
-  void target;
+  const target = await db.select({ id: users.id }).from(users).where(eq(users.id, data.targetUserId)).limit(1);
+  if (!target.length) throw new Error("المستخدم غير موجود");
+  if (data.listingId !== undefined) {
+    const listing = await db.select({ id: listings.id }).from(listings).where(eq(listings.id, data.listingId)).limit(1);
+    if (!listing.length) throw new Error("الإعلان غير موجود");
+  }
   const result = await db.insert(ratings).values({ userId, targetUserId: data.targetUserId, listingId: data.listingId ?? null, rating: data.rating, comment: data.comment ?? null });
   return { success: true as const, ratingId: Number((result as any)[0]?.insertId) };
 }
