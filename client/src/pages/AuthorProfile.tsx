@@ -67,10 +67,7 @@ export default function AuthorProfile() {
                       <div className="flex-1">
                         <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{book.title}</h3>
                         <p className="text-muted-foreground mb-3 line-clamp-2">{book.description}</p>
-                        <div className="flex items-center justify-between">
-                          {book.price && <span className="text-primary font-bold">{book.price} {book.currency}</span>}
-                          {book.rating && <div className="flex items-center gap-1"><span className="text-yellow-500">★</span><span className="text-sm">{Number(book.rating)}</span></div>}
-                        </div>
+                        {book.price && <span className="text-primary font-bold">{book.price} {book.currency}</span>}
                       </div>
                     </a>
                   ))}
