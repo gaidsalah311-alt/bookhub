@@ -28,10 +28,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # package.json already pins pnpm via the packageManager field.
+      # Do not specify a second pnpm version here; pnpm/action-setup will
+      # read and use the repository's packageManager declaration.
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.4.1
           run_install: false
 
       - name: Setup Node
