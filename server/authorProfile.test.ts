@@ -48,7 +48,6 @@ describe("author profile procedures", () => {
     const { ctx } = createAuthContext('user', 'new-author-id');
     const caller = appRouter.createCaller(ctx);
 
-    // Insert user first as author profile depends on user id
     await db.insert(users).values(ctx.user);
 
     const newProfileData = {
@@ -69,7 +68,6 @@ describe("author profile procedures", () => {
     const { ctx } = createAuthContext('user', 'existing-author-id');
     const caller = appRouter.createCaller(ctx);
 
-    // Insert user and initial author profile
     await db.insert(users).values(ctx.user);
     await db.insert(authorProfiles).values({
       userId: ctx.user.id,
@@ -91,7 +89,9 @@ describe("author profile procedures", () => {
     expect(profile).toHaveLength(1);
     expect(profile[0]?.bio).toBe(updatedProfileData.bio);
     expect(profile[0]?.website).toBe(updatedProfileData.website);
-    expect(profile[0]?.socialLinks).toEqual(updatedProfileData.socialLinks);
+    const rawSocialLinks = profile[0]?.socialLinks;
+    const socialLinks = typeof rawSocialLinks === "string" ? JSON.parse(rawSocialLinks) : rawSocialLinks;
+    expect(socialLinks).toEqual(updatedProfileData.socialLinks);
   });
 
   it("should fetch an author profile", async () => {
