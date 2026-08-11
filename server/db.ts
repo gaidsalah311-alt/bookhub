@@ -87,6 +87,22 @@ export async function getUserRatings(userId: number, limit: number = 20, offset:
 export async function getUserAverageRating(userId: number) { const db = await getDb(); if (!db) return 0; const result = await db.select({ avgRating: ratings.rating }).from(ratings).where(eq(ratings.targetUserId, userId)); if (result.length === 0) return 0; const sum = result.reduce((acc, r) => acc + (r.avgRating || 0), 0); return Math.round((sum / result.length) * 10) / 10; }
 export async function getPendingReports(limit: number = 20, offset: number = 0) { const db = await getDb(); if (!db) return []; return await db.select().from(reports).where(eq(reports.status, "pending")).orderBy(desc(reports.createdAt)).limit(limit).offset(offset); }
 
+// Defensive normalizer: the MySQL JSON driver is expected to auto-parse json()
+// columns into objects, but under certain connection/timing conditions
+// (observed intermittently in CI) it can hand back the raw JSON text instead.
+// This guards downstream code against ever seeing a stringified value.
+function normalizeSocialLinks(value: unknown): Record<string, string> | null {
+  if (value == null) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value as Record<string, string>;
+}
+
 export async function getAuthorProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
   const result = await db.select({
@@ -103,7 +119,8 @@ export async function getAuthorProfile(userId: number) {
     profileImage: users.profileImage,
     email: users.email,
   }).from(authorProfiles).innerJoin(users, eq(authorProfiles.userId, users.id)).where(eq(authorProfiles.userId, userId)).limit(1);
-  return result.length > 0 ? result[0] : null;
+  if (result.length === 0) return null;
+  return { ...result[0], socialLinks: normalizeSocialLinks(result[0].socialLinks) };
 }
 export async function getLibraryProfile(userId: number) {
   const db = await getDb(); if (!db) return null;
