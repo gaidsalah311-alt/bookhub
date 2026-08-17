@@ -11,7 +11,58 @@ import {
   getUserCategories,
   createCategory,
   getBookStatistics,
+  getBookNote,
+  upsertBookNote,
+  deleteBookNote,
 } from "./db";
+
+export function parseBookNoteInput(value: unknown) {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid note input");
+  }
+
+  const input = value as Record<string, unknown>;
+  if (!Number.isInteger(input.bookId) || (input.bookId as number) <= 0) {
+    throw new Error("Invalid book id");
+  }
+
+  let note: string | null | undefined;
+  if (input.note !== undefined && input.note !== null) {
+    if (typeof input.note !== "string" || input.note.length > 10000) {
+      throw new Error("Note must be a text value up to 10000 characters");
+    }
+    note = input.note.trim() || null;
+  } else if (input.note === null) {
+    note = null;
+  }
+
+  let personalRating: number | null | undefined;
+  if (input.personalRating !== undefined && input.personalRating !== null) {
+    if (
+      !Number.isInteger(input.personalRating) ||
+      (input.personalRating as number) < 1 ||
+      (input.personalRating as number) > 5
+    ) {
+      throw new Error("Personal rating must be an integer from 1 to 5");
+    }
+    personalRating = input.personalRating as number;
+  } else if (input.personalRating === null) {
+    personalRating = null;
+  }
+
+  if (
+    (note === undefined || note === null) &&
+    (personalRating === undefined || personalRating === null)
+  ) {
+    throw new Error("Add a note or a personal rating, or delete the note");
+  }
+
+  return {
+    bookId: input.bookId as number,
+    ...(note !== undefined ? { note } : {}),
+    ...(personalRating !== undefined ? { personalRating } : {}),
+  };
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -34,7 +85,7 @@ export const appRouter = router({
         if (typeof val === "number") return val;
         throw new Error("Invalid input");
       })
-      .query(({ ctx, input }) => getBookById(input, ctx.user.id)),
+      .query(async ({ ctx, input }) => (await getBookById(input, ctx.user.id)) ?? null),
     
     create: protectedProcedure
       .input((val: unknown) => {
@@ -114,6 +165,40 @@ export const appRouter = router({
       ),
   }),
   
+  bookNotes: router({
+    get: protectedProcedure
+      .input((value: unknown) => {
+        if (Number.isInteger(value) && (value as number) > 0) {
+          return value as number;
+        }
+        throw new Error("Invalid book id");
+      })
+      .query(async ({ ctx, input }) => (await getBookNote(input, ctx.user.id)) ?? null),
+
+    upsert: protectedProcedure
+      .input(parseBookNoteInput)
+      .mutation(({ ctx, input }) =>
+        upsertBookNote({
+          userId: ctx.user.id,
+          bookId: input.bookId,
+          note: input.note,
+          personalRating: input.personalRating,
+        })
+      ),
+
+    delete: protectedProcedure
+      .input((value: unknown) => {
+        if (Number.isInteger(value) && (value as number) > 0) {
+          return value as number;
+        }
+        throw new Error("Invalid book id");
+      })
+      .mutation(async ({ ctx, input }) => {
+        await deleteBookNote(input, ctx.user.id);
+        return { success: true } as const;
+      }),
+  }),
+
   stats: router({
     get: protectedProcedure.query(({ ctx }) =>
       getBookStatistics(ctx.user.id)

@@ -26,10 +26,18 @@ export default function BookDetailPage() {
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [personalNote, setPersonalNote] = useState("");
+  const [personalRating, setPersonalRating] = useState<number | null>(null);
+  const utils = trpc.useUtils();
 
   const { data: book, isLoading } = trpc.books.get.useQuery(bookId || 0, {
     enabled: bookId !== null,
   });
+
+  const { data: bookNote, isLoading: isBookNoteLoading } =
+    trpc.bookNotes.get.useQuery(bookId || 0, {
+      enabled: bookId !== null,
+    });
 
   const updateBookMutation = trpc.books.update.useMutation({
     onSuccess: () => {
@@ -38,6 +46,28 @@ export default function BookDetailPage() {
     },
     onError: () => {
       toast.error("حدث خطأ أثناء تحديث الكتاب");
+    },
+  });
+
+  const saveBookNoteMutation = trpc.bookNotes.upsert.useMutation({
+    onSuccess: async () => {
+      await utils.bookNotes.get.invalidate(bookId || 0);
+      toast.success("تم حفظ ملاحظتك الشخصية");
+    },
+    onError: (error) => {
+      toast.error(error.message || "تعذر حفظ الملاحظة");
+    },
+  });
+
+  const deleteBookNoteMutation = trpc.bookNotes.delete.useMutation({
+    onSuccess: async () => {
+      setPersonalNote("");
+      setPersonalRating(null);
+      await utils.bookNotes.get.invalidate(bookId || 0);
+      toast.success("تم حذف الملاحظة الشخصية");
+    },
+    onError: (error) => {
+      toast.error(error.message || "تعذر حذف الملاحظة");
     },
   });
 
@@ -65,6 +95,11 @@ export default function BookDetailPage() {
     }
   }, [book]);
 
+  useEffect(() => {
+    setPersonalNote(bookNote?.note || "");
+    setPersonalRating(bookNote?.personalRating ?? null);
+  }, [bookNote]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -83,6 +118,27 @@ export default function BookDetailPage() {
       id: bookId,
       ...formData,
     } as any);
+  };
+
+  const handleSavePersonalNote = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!bookId || isBookNoteLoading) return;
+
+    const note = personalNote.trim();
+    if (!note && personalRating === null) {
+      toast.error("أضف ملاحظة أو تقييماً شخصياً قبل الحفظ");
+      return;
+    }
+
+    saveBookNoteMutation.mutate({
+      bookId,
+      note: note || null,
+      personalRating,
+    });
+  };
+
+  const handleDeletePersonalNote = () => {
+    if (bookId) deleteBookNoteMutation.mutate(bookId);
   };
 
   const handleDelete = () => {
@@ -344,6 +400,93 @@ export default function BookDetailPage() {
             </Card>
           </div>
         </div>
+
+        {/* Personal notes */}
+        <Card className="mt-8 p-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">ملاحظتي الشخصية</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              هذه الملاحظات خاصة بك ولا يراها أي مستخدم آخر.
+            </p>
+          </div>
+
+          <form onSubmit={handleSavePersonalNote} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="personalNote" className="text-base font-semibold">
+                ملاحظات القراءة
+              </Label>
+              <Textarea
+                id="personalNote"
+                value={personalNote}
+                onChange={(event) => setPersonalNote(event.target.value)}
+                placeholder="اكتب انطباعاتك أو اقتباساتك أو ما تريد تذكره عن الكتاب..."
+                maxLength={10000}
+                className="min-h-32 resize-y"
+                disabled={isBookNoteLoading || saveBookNoteMutation.isPending}
+              />
+              <p className="text-xs text-gray-500 text-left" dir="ltr">
+                {personalNote.length}/10000
+              </p>
+            </div>
+
+            <div className="max-w-xs space-y-2">
+              <Label htmlFor="personalRating" className="text-base font-semibold">
+                تقييمي الشخصي
+              </Label>
+              <Input
+                id="personalRating"
+                type="number"
+                min="1"
+                max="5"
+                step="1"
+                value={personalRating ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!value) {
+                    setPersonalRating(null);
+                    return;
+                  }
+                  const parsed = Number(value);
+                  setPersonalRating(
+                    Number.isInteger(parsed) && parsed >= 1 && parsed <= 5
+                      ? parsed
+                      : null
+                  );
+                }}
+                placeholder="من 1 إلى 5"
+                disabled={isBookNoteLoading || saveBookNoteMutation.isPending}
+              />
+              <p className="text-xs text-gray-500">تقييمك الخاص، وليس التقييم العام للكتاب.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 border-t border-gray-200 pt-6">
+              <Button
+                type="submit"
+                disabled={
+                  isBookNoteLoading ||
+                  saveBookNoteMutation.isPending ||
+                  deleteBookNoteMutation.isPending
+                }
+              >
+                {saveBookNoteMutation.isPending ? "جاري الحفظ..." : "حفظ الملاحظة"}
+              </Button>
+              {bookNote && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDeletePersonalNote}
+                  disabled={
+                    isBookNoteLoading ||
+                    saveBookNoteMutation.isPending ||
+                    deleteBookNoteMutation.isPending
+                  }
+                >
+                  {deleteBookNoteMutation.isPending ? "جاري الحذف..." : "حذف الملاحظة"}
+                </Button>
+              )}
+            </div>
+          </form>
+        </Card>
       </div>
     </div>
   );

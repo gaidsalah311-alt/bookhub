@@ -1,4 +1,4 @@
-import { index, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -78,3 +78,31 @@ export const categories = mysqlTable(
 
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = typeof categories.$inferInsert;
+
+/**
+ * Private notes and personal ratings owned by the user for a specific book.
+ * A user can have at most one note record per book.
+ */
+export const bookNotes = mysqlTable(
+  "bookNotes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    bookId: int("bookId").notNull(),
+    note: text("note"),
+    personalRating: int("personalRating"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    userBookUniqueIdx: uniqueIndex("bookNotesUserBookUnique").on(
+      table.userId,
+      table.bookId
+    ),
+    userIdIdx: index("bookNotesUserIdIdx").on(table.userId),
+    bookIdIdx: index("bookNotesBookIdIdx").on(table.bookId),
+  })
+);
+
+export type BookNote = typeof bookNotes.$inferSelect;
+export type InsertBookNote = typeof bookNotes.$inferInsert;

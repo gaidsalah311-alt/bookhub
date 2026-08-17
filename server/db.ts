@@ -1,6 +1,15 @@
 import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, books, categories, Book, InsertBook, Category, InsertCategory } from "../drizzle/schema";
+import {
+  InsertUser,
+  users,
+  books,
+  categories,
+  bookNotes,
+  InsertBook,
+  InsertCategory,
+  InsertBookNote,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -113,13 +122,13 @@ export async function getBookById(bookId: number, userId: number) {
   const result = await db
     .select()
     .from(books)
-    .where(eq(books.id, bookId))
+    .where(and(eq(books.id, bookId), eq(books.userId, userId)))
     .limit(1);
   
   if (result.length === 0 || result[0].userId !== userId) {
     return undefined;
   }
-  
+
   return result[0];
 }
 
@@ -148,7 +157,7 @@ export async function updateBook(bookId: number, userId: number, updates: Partia
   return db
     .update(books)
     .set(updates)
-    .where(eq(books.id, bookId));
+    .where(and(eq(books.id, bookId), eq(books.userId, userId)));
 }
 
 /**
@@ -162,7 +171,9 @@ export async function deleteBook(bookId: number, userId: number) {
   const book = await getBookById(bookId, userId);
   if (!book) throw new Error("Book not found or unauthorized");
   
-  return db.delete(books).where(eq(books.id, bookId));
+  return db
+    .delete(books)
+    .where(and(eq(books.id, bookId), eq(books.userId, userId)));
 }
 
 /**
@@ -215,4 +226,60 @@ export async function getBookStatistics(userId: number) {
   };
   
   return stats;
+}
+
+export async function getBookNote(bookId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(bookNotes)
+    .where(and(eq(bookNotes.bookId, bookId), eq(bookNotes.userId, userId)))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertBookNote(note: InsertBookNote) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const ownedBook = await getBookById(note.bookId, note.userId);
+  if (!ownedBook) throw new Error("Book not found or unauthorized");
+
+  const existing = await getBookNote(note.bookId, note.userId);
+  const values: InsertBookNote = {
+    userId: note.userId,
+    bookId: note.bookId,
+    note: note.note !== undefined ? note.note : existing?.note ?? null,
+    personalRating:
+      note.personalRating !== undefined
+        ? note.personalRating
+        : existing?.personalRating ?? null,
+  };
+
+  if (values.note === null && values.personalRating === null) {
+    throw new Error("Add a note or a personal rating, or delete the note");
+  }
+
+  return db.insert(bookNotes).values(values).onDuplicateKeyUpdate({
+    set: {
+      note: values.note,
+      personalRating: values.personalRating,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+export async function deleteBookNote(bookId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const ownedBook = await getBookById(bookId, userId);
+  if (!ownedBook) throw new Error("Book not found or unauthorized");
+
+  return db
+    .delete(bookNotes)
+    .where(and(eq(bookNotes.bookId, bookId), eq(bookNotes.userId, userId)));
 }

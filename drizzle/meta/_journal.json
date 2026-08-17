@@ -15,6 +15,13 @@
       "when": 1784498925244,
       "tag": "0001_left_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786960845034,
+      "tag": "0002_violet_micromacro",
+      "breakpoints": true
     }
   ]
 }
