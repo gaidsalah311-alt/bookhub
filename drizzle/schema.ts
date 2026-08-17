@@ -45,6 +45,9 @@ export const books = mysqlTable(
       "لم يُقرأ",
     ]).default("لم يُقرأ"),
     coverImageUrl: text("coverImageUrl"), // URL to book cover image
+    coverImageKey: text("coverImageKey"), // S3/storage object key
+    coverImageMimeType: varchar("coverImageMimeType", { length: 64 }),
+    coverImageSize: int("coverImageSize"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

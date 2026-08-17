@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { storagePut } from "./storage";
 import {
   getUserBooks,
   getBookById,
@@ -14,6 +15,7 @@ import {
   getBookNote,
   upsertBookNote,
   deleteBookNote,
+  getUserLibraryExport,
 } from "./db";
 
 export function parseBookNoteInput(value: unknown) {
@@ -62,6 +64,30 @@ export function parseBookNoteInput(value: unknown) {
     ...(note !== undefined ? { note } : {}),
     ...(personalRating !== undefined ? { personalRating } : {}),
   };
+}
+
+export function parseCoverUploadInput(value: unknown) {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid cover input");
+  }
+  const input = value as Record<string, unknown>;
+  const fileName = typeof input.fileName === "string" ? input.fileName : "";
+  const mimeType = typeof input.mimeType === "string" ? input.mimeType : "";
+  const dataBase64 = typeof input.dataBase64 === "string" ? input.dataBase64 : "";
+  if (!fileName || !mimeType || !dataBase64) {
+    throw new Error("Cover file is required");
+  }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+    throw new Error("Only JPG, PNG, and WebP covers are supported");
+  }
+  if (dataBase64.length > 8 * 1024 * 1024) {
+    throw new Error("Cover file is too large");
+  }
+  const safeFileName = fileName
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/^[.-]+/, "")
+    .slice(-120);
+  return { fileName: safeFileName || "cover", mimeType, dataBase64 };
 }
 
 export const appRouter = router({
@@ -202,6 +228,34 @@ export const appRouter = router({
   stats: router({
     get: protectedProcedure.query(({ ctx }) =>
       getBookStatistics(ctx.user.id)
+    ),
+  }),
+
+  cover: router({
+    upload: protectedProcedure
+      .input(parseCoverUploadInput)
+      .mutation(async ({ ctx, input }) => {
+        const base64 = input.dataBase64.replace(/^data:[^;]+;base64,/, "");
+        const bytes = Buffer.from(base64, "base64");
+        if (bytes.length === 0 || bytes.length > 5 * 1024 * 1024) {
+          throw new Error("Cover file must be between 1 byte and 5 MB");
+        }
+        const uploaded = await storagePut(
+          `users/${ctx.user.id}/covers/${input.fileName}`,
+          bytes,
+          input.mimeType,
+        );
+        return {
+          ...uploaded,
+          mimeType: input.mimeType,
+          size: bytes.length,
+        };
+      }),
+  }),
+
+  exports: router({
+    library: protectedProcedure.query(({ ctx }) =>
+      getUserLibraryExport(ctx.user.id)
     ),
   }),
 });

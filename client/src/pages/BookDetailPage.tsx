@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CoverUploadField from "@/components/CoverUploadField";
 import { ArrowRight, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,9 @@ export default function BookDetailPage() {
     rating: 0,
     readingStatus: "لم يُقرأ" as "مقروء" | "قيد القراءة" | "لم يُقرأ",
     coverImageUrl: "",
+    coverImageKey: "",
+    coverImageMimeType: "",
+    coverImageSize: 0,
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -91,6 +95,9 @@ export default function BookDetailPage() {
         rating: book.rating || 0,
         readingStatus: book.readingStatus as "مقروء" | "قيد القراءة" | "لم يُقرأ",
         coverImageUrl: book.coverImageUrl || "",
+        coverImageKey: book.coverImageKey || "",
+        coverImageMimeType: book.coverImageMimeType || "",
+        coverImageSize: book.coverImageSize || 0,
       });
     }
   }, [book]);
@@ -117,6 +124,9 @@ export default function BookDetailPage() {
     updateBookMutation.mutate({
       id: bookId,
       ...formData,
+      coverImageKey: formData.coverImageKey || undefined,
+      coverImageMimeType: formData.coverImageMimeType || undefined,
+      coverImageSize: formData.coverImageSize || undefined,
     } as any);
   };
 
@@ -310,6 +320,21 @@ export default function BookDetailPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <CoverUploadField
+                    value={formData.coverImageUrl}
+                    onUrlChange={(coverImageUrl) =>
+                      setFormData((prev) => ({ ...prev, coverImageUrl }))
+                    }
+                    onMetadataChange={({ key, mimeType, size }) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        coverImageKey: key || "",
+                        coverImageMimeType: mimeType || "",
+                        coverImageSize: size || 0,
+                      }))
+                    }
+                  />
 
                   {/* Buttons */}
                   <div className="flex gap-4 pt-6">

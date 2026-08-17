@@ -283,3 +283,43 @@ export async function deleteBookNote(bookId: number, userId: number) {
     .delete(bookNotes)
     .where(and(eq(bookNotes.bookId, bookId), eq(bookNotes.userId, userId)));
 }
+
+/**
+ * Assemble an export-safe snapshot of a user's library. Every book is loaded
+ * through getUserBooks and every note through the same userId, so no other
+ * user's private notes can enter an export.
+ */
+export async function getUserLibraryExport(userId: number) {
+  const [rawBooks, rawCategories] = await Promise.all([
+    getUserBooks(userId),
+    getUserCategories(userId),
+  ]);
+  const userBooks = rawBooks.filter((book) => book.userId === userId);
+  const userCategories = rawCategories.filter((category) => category.userId === userId);
+
+  const categoryNames = new Map(
+    userCategories.map((category) => [category.id, category.name]),
+  );
+  const notes = await Promise.all(
+    userBooks.map((book) => getBookNote(book.id, userId)),
+  );
+
+  return userBooks.map((book, index) => ({
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    description: book.description,
+    categoryId: book.categoryId,
+    categoryName: book.categoryId
+      ? categoryNames.get(book.categoryId) ?? null
+      : null,
+    publishYear: book.publishYear,
+    rating: book.rating,
+    readingStatus: book.readingStatus,
+    coverImageUrl: book.coverImageUrl,
+    personalNote: notes[index]?.note ?? null,
+    personalRating: notes[index]?.personalRating ?? null,
+    createdAt: book.createdAt,
+    updatedAt: book.updatedAt,
+  }));
+}

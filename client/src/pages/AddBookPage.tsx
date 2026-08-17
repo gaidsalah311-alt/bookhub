@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CoverUploadField from "@/components/CoverUploadField";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +21,9 @@ export default function AddBookPage() {
     rating: 0,
     readingStatus: "لم يُقرأ" as "مقروء" | "قيد القراءة" | "لم يُقرأ",
     coverImageUrl: "",
+    coverImageKey: "",
+    coverImageMimeType: "",
+    coverImageSize: 0,
   });
 
   const createBookMutation = trpc.books.create.useMutation({
@@ -48,7 +52,12 @@ export default function AddBookPage() {
       toast.error("يرجى ملء العنوان والمؤلف");
       return;
     }
-    createBookMutation.mutate(formData as any);
+    createBookMutation.mutate({
+      ...formData,
+      coverImageKey: formData.coverImageKey || undefined,
+      coverImageMimeType: formData.coverImageMimeType || undefined,
+      coverImageSize: formData.coverImageSize || undefined,
+    } as any);
   };
 
   return (
@@ -178,20 +187,20 @@ export default function AddBookPage() {
               </Select>
             </div>
 
-            {/* Cover Image URL */}
-            <div className="space-y-2">
-              <Label htmlFor="coverImageUrl" className="text-base font-semibold">
-                رابط صورة الغلاف
-              </Label>
-              <Input
-                id="coverImageUrl"
-                name="coverImageUrl"
-                value={formData.coverImageUrl}
-                onChange={handleChange}
-                placeholder="https://example.com/cover.jpg"
-                type="url"
-              />
-            </div>
+            <CoverUploadField
+              value={formData.coverImageUrl}
+              onUrlChange={(coverImageUrl) =>
+                setFormData((prev) => ({ ...prev, coverImageUrl }))
+              }
+              onMetadataChange={({ key, mimeType, size }) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  coverImageKey: key || "",
+                  coverImageMimeType: mimeType || "",
+                  coverImageSize: size || 0,
+                }))
+              }
+            />
 
             {/* Submit Button */}
             <div className="flex gap-4 pt-6">

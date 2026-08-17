@@ -4,9 +4,38 @@ import { trpc } from "@/lib/trpc";
 import BookCard from "@/components/BookCard";
 import SearchAndFilter from "@/components/SearchAndFilter";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, BarChart3 } from "lucide-react";
+import { Plus, Loader2, BarChart3, Download, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import {
+  buildCsvContent,
+  buildPrintableLibraryDocument,
+  type LibraryExportRow,
+} from "@/lib/libraryExport";
+
+function downloadCsv(rows: LibraryExportRow[]) {
+  const blob = new Blob([buildCsvContent(rows)], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `bookhub-library-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function printLibraryAsPdf(rows: LibraryExportRow[]) {
+  const printWindow = window.open("", "_blank", "width=900,height=700");
+  if (!printWindow) {
+    toast.error("اسمح بالنوافذ المنبثقة لإنشاء نسخة PDF");
+    return;
+  }
+  printWindow.document.write(buildPrintableLibraryDocument(rows));
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 300);
+}
 
 export default function BooksPage() {
   const { user, isAuthenticated } = useAuth();
@@ -22,6 +51,12 @@ export default function BooksPage() {
   const { data: stats } = trpc.stats.get.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+
+  const {
+    data: exportRows,
+    isFetching: isExportLoading,
+    isError: isExportError,
+  } = trpc.exports.library.useQuery(undefined, { enabled: isAuthenticated });
 
   const filteredBooks = useMemo(() => {
     if (!books) return [];
@@ -86,6 +121,20 @@ export default function BooksPage() {
     setLocation(`/book/${book.id}`);
   };
 
+  const handleExport = (kind: "csv" | "pdf") => {
+    if (isExportLoading) {
+      toast.info("جاري تجهيز بيانات التصدير...");
+      return;
+    }
+    if (isExportError || !exportRows) {
+      toast.error("تعذر تجهيز بيانات التصدير. حاول مرة أخرى.");
+      return;
+    }
+    const rows = exportRows as LibraryExportRow[];
+    if (kind === "csv") downloadCsv(rows);
+    else printLibraryAsPdf(rows);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Header */}
@@ -106,6 +155,24 @@ export default function BooksPage() {
               >
                 <BarChart3 size={20} />
                 الإحصائيات
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport("csv")}
+                disabled={isExportLoading}
+                className="gap-2"
+              >
+                <Download size={18} />
+                CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport("pdf")}
+                disabled={isExportLoading}
+                className="gap-2"
+              >
+                <FileText size={18} />
+                حفظ PDF
               </Button>
               <Button
                 onClick={() => setLocation("/add-book")}
