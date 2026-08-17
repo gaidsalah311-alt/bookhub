@@ -1,44 +1,263 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
-import { z } from "zod";
-import { getUserById, getCategories, searchListings, getListingById, getUserListings, getUserConversations, getConversationMessages, getUserFavorites, getUserFollowing, getUserFollowers, getSubscriptionPlans, getUserActiveSubscription, getUserNotifications, getUnreadNotificationsCount, getUserRatings, getUserAverageRating, getAuthorProfile, getLibraryProfile, getPublisherProfile, updateAuthorProfile, updateLibraryProfile, updatePublisherProfile } from "./db";
-import { createBook } from "./books";
-import { createListing, updateListing, deleteListing, sendMessage, markMessageRead, addFavorite, removeFavorite, followUser, unfollowUser, markNotificationRead, createRating, subscribeToPlan, cancelSubscription, createReport, listReports, resolveReport } from "./marketplace";
-import { TRPCError } from "@trpc/server";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { storagePut } from "./storage";
+import {
+  getUserBooks,
+  getBookById,
+  createBook,
+  updateBook,
+  deleteBook,
+  getUserCategories,
+  createCategory,
+  getBookStatistics,
+  getBookNote,
+  upsertBookNote,
+  deleteBookNote,
+  getUserLibraryExport,
+} from "./db";
 
-const pagination = { limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) };
+export function parseBookNoteInput(value: unknown) {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid note input");
+  }
 
-function normalizeListing(row: any) {
-  const listing = row?.listings ?? row?.listing ?? row; const book = row?.books ?? row?.book ?? {}; const user = row?.users ?? row?.user ?? {};
-  return { id: listing.id, slug: String(listing.id), title: book.title, author: book.author, description: book.description, cover: book.coverImage ?? null, language: book.language, isbn: book.isbn, publishDate: book.publishDate, publisher: book.publisher, pages: book.pages, format: listing.type, price: listing.price, currency: listing.currency, country: listing.country, condition: listing.condition, externalLink: listing.externalLink, externalPlatform: listing.externalPlatform, status: listing.status, isPremium: listing.isPremium, premiumTier: listing.premiumTier, premiumExpires: listing.premiumExpires, expiresAt: listing.expiresAt, views: listing.views ?? 0, shares: listing.shares ?? 0, favorites: listing.favorites ?? 0, seller: { id: user.id, name: user.name, role: user.role, profileImage: user.profileImage } };
+  const input = value as Record<string, unknown>;
+  if (!Number.isInteger(input.bookId) || (input.bookId as number) <= 0) {
+    throw new Error("Invalid book id");
+  }
+
+  let note: string | null | undefined;
+  if (input.note !== undefined && input.note !== null) {
+    if (typeof input.note !== "string" || input.note.length > 10000) {
+      throw new Error("Note must be a text value up to 10000 characters");
+    }
+    note = input.note.trim() || null;
+  } else if (input.note === null) {
+    note = null;
+  }
+
+  let personalRating: number | null | undefined;
+  if (input.personalRating !== undefined && input.personalRating !== null) {
+    if (
+      !Number.isInteger(input.personalRating) ||
+      (input.personalRating as number) < 1 ||
+      (input.personalRating as number) > 5
+    ) {
+      throw new Error("Personal rating must be an integer from 1 to 5");
+    }
+    personalRating = input.personalRating as number;
+  } else if (input.personalRating === null) {
+    personalRating = null;
+  }
+
+  if (
+    (note === undefined || note === null) &&
+    (personalRating === undefined || personalRating === null)
+  ) {
+    throw new Error("Add a note or a personal rating, or delete the note");
+  }
+
+  return {
+    bookId: input.bookId as number,
+    ...(note !== undefined ? { note } : {}),
+    ...(personalRating !== undefined ? { personalRating } : {}),
+  };
+}
+
+export function parseCoverUploadInput(value: unknown) {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid cover input");
+  }
+  const input = value as Record<string, unknown>;
+  const fileName = typeof input.fileName === "string" ? input.fileName : "";
+  const mimeType = typeof input.mimeType === "string" ? input.mimeType : "";
+  const dataBase64 = typeof input.dataBase64 === "string" ? input.dataBase64 : "";
+  if (!fileName || !mimeType || !dataBase64) {
+    throw new Error("Cover file is required");
+  }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+    throw new Error("Only JPG, PNG, and WebP covers are supported");
+  }
+  if (dataBase64.length > 8 * 1024 * 1024) {
+    throw new Error("Cover file is too large");
+  }
+  const safeFileName = fileName
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/^[.-]+/, "")
+    .slice(-120);
+  return { fileName: safeFileName || "cover", mimeType, dataBase64 };
 }
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(async ({ ctx }) => ctx.user ?? null),
-    logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }),
-    profile: protectedProcedure.query(async ({ ctx }) => { const user = await getUserById(ctx.user.id); if (!user) throw new TRPCError({ code: "NOT_FOUND" }); let profile = null; if (user.role === "author") profile = await getAuthorProfile(user.id); else if (user.role === "library") profile = await getLibraryProfile(user.id); else if (user.role === "publisher") profile = await getPublisherProfile(user.id); return { user, profile }; }),
+    me: publicProcedure.query(opts => opts.ctx.user),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return {
+        success: true,
+      } as const;
+    }),
   }),
+
   books: router({
-    categories: publicProcedure.query(() => getCategories()),
-    search: publicProcedure.input(z.object({ query: z.string().trim().min(1).max(200), categoryId: z.number().int().positive().optional(), country: z.string().max(100).optional(), language: z.string().max(10).optional(), type: z.enum(["paper", "digital", "external_link"]).optional(), minPrice: z.number().nonnegative().optional(), maxPrice: z.number().nonnegative().optional(), ...pagination })).query(async ({ input }) => (await searchListings(input.query, input)).map(normalizeListing)),
-    getById: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => { const listing = await getListingById(input.id); if (!listing) throw new TRPCError({ code: "NOT_FOUND" }); return normalizeListing(listing); }),
-    getUserListings: publicProcedure.input(z.object({ userId: z.number().int().positive(), ...pagination })).query(async ({ input }) => (await getUserListings(input.userId, input.limit, input.offset)).map(normalizeListing)),
-    createBook: protectedProcedure.input(z.object({ title: z.string().trim().min(1).max(255), author: z.string().trim().min(1).max(255), description: z.string().max(20000).optional(), categoryId: z.number().int().positive(), subcategoryId: z.number().int().positive().optional(), language: z.string().trim().min(2).max(10), isbn: z.string().trim().max(20).optional(), publishDate: z.coerce.date().optional(), publisher: z.string().trim().max(255).optional(), pages: z.number().int().positive().max(100000).optional(), coverImage: z.string().url().optional() })).mutation(({ input }) => createBook(input)),
-    create: protectedProcedure.input(z.object({ bookId: z.number().int().positive(), type: z.enum(["paper", "digital", "external_link"]), condition: z.enum(["new", "like_new", "good", "fair"]).optional(), price: z.number().positive(), currency: z.string().trim().min(1).max(10), country: z.string().trim().min(1).max(100), externalLink: z.string().url().optional(), externalPlatform: z.string().trim().max(100).optional(), description: z.string().max(10000).optional() })).mutation(({ ctx, input }) => createListing(ctx.user.id, input)),
-    update: protectedProcedure.input(z.object({ listingId: z.number().int().positive(), price: z.number().positive().optional(), description: z.string().max(10000).optional(), status: z.enum(["active", "sold", "archived"]).optional() })).mutation(({ ctx, input }) => updateListing(ctx.user.id, input.listingId, input)),
-    delete: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => deleteListing(ctx.user.id, input.listingId)),
+    list: protectedProcedure.query(({ ctx }) => getUserBooks(ctx.user.id)),
+    
+    get: protectedProcedure
+      .input((val: unknown) => {
+        if (typeof val === "number") return val;
+        throw new Error("Invalid input");
+      })
+      .query(async ({ ctx, input }) => (await getBookById(input, ctx.user.id)) ?? null),
+    
+    create: protectedProcedure
+      .input((val: unknown) => {
+        if (
+          typeof val === "object" &&
+          val !== null &&
+          "title" in val &&
+          "author" in val
+        ) {
+          return val as {
+            title: string;
+            author: string;
+            description?: string;
+            categoryId?: number;
+            publishYear?: number;
+            rating?: number;
+            readingStatus?: "مقروء" | "قيد القراءة" | "لم يُقرأ";
+            coverImageUrl?: string;
+          };
+        }
+        throw new Error("Invalid input");
+      })
+      .mutation(({ ctx, input }) =>
+        createBook({
+          userId: ctx.user.id,
+          ...input,
+        } as any)
+      ),
+    
+    update: protectedProcedure
+      .input((val: unknown) => {
+        if (
+          typeof val === "object" &&
+          val !== null &&
+          "id" in val &&
+          typeof (val as any).id === "number"
+        ) {
+          const { id, ...updates } = val as any;
+          return { id, updates };
+        }
+        throw new Error("Invalid input");
+      })
+      .mutation(({ ctx, input }) =>
+        updateBook(input.id, ctx.user.id, input.updates as any)
+      ),
+    
+    delete: protectedProcedure
+      .input((val: unknown) => {
+        if (typeof val === "number") return val;
+        throw new Error("Invalid input");
+      })
+      .mutation(({ ctx, input }) => deleteBook(input, ctx.user.id)),
   }),
-  messages: router({ conversations: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserConversations(ctx.user.id, input.limit, input.offset)), getConversationMessages: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), ...pagination })).query(async ({ ctx, input }) => { const rows = await getUserConversations(ctx.user.id, 100, 0); if (!rows.some((row: any) => row.id === input.conversationId)) throw new TRPCError({ code: "FORBIDDEN" }); return getConversationMessages(input.conversationId, input.limit, input.offset); }), sendMessage: protectedProcedure.input(z.object({ conversationId: z.number().int().positive(), content: z.string().trim().min(1).max(5000), image: z.string().url().optional() })).mutation(({ ctx, input }) => sendMessage(ctx.user.id, input.conversationId, input.content, input.image)), markAsRead: protectedProcedure.input(z.object({ messageId: z.number().int().positive() })).mutation(({ ctx, input }) => markMessageRead(ctx.user.id, input.messageId)) }),
-  favorites: router({ list: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserFavorites(ctx.user.id, input.limit, input.offset)), add: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => addFavorite(ctx.user.id, input.listingId)), remove: protectedProcedure.input(z.object({ listingId: z.number().int().positive() })).mutation(({ ctx, input }) => removeFavorite(ctx.user.id, input.listingId)) }),
-  follows: router({ following: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserFollowing(ctx.user.id, input.limit, input.offset)), followers: publicProcedure.input(z.object({ userId: z.number().int().positive(), ...pagination })).query(({ input }) => getUserFollowers(input.userId, input.limit, input.offset)), follow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => followUser(ctx.user.id, input.userId)), unfollow: protectedProcedure.input(z.object({ userId: z.number().int().positive() })).mutation(({ ctx, input }) => unfollowUser(ctx.user.id, input.userId)) }),
-  subscriptions: router({ plans: publicProcedure.query(() => getSubscriptionPlans()), active: protectedProcedure.query(({ ctx }) => getUserActiveSubscription(ctx.user.id)), subscribe: protectedProcedure.input(z.object({ planId: z.number().int().positive() })).mutation(({ ctx, input }) => subscribeToPlan(ctx.user.id, input.planId)), cancel: protectedProcedure.input(z.object({ subscriptionId: z.number().int().positive() })).mutation(({ ctx, input }) => cancelSubscription(ctx.user.id, input.subscriptionId)) }),
-  notifications: router({ list: protectedProcedure.input(z.object(pagination)).query(({ ctx, input }) => getUserNotifications(ctx.user.id, input.limit, input.offset)), unreadCount: protectedProcedure.query(({ ctx }) => getUnreadNotificationsCount(ctx.user.id)), markAsRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(({ ctx, input }) => markNotificationRead(ctx.user.id, input.notificationId)) }),
-  ratings: router({ userRatings: publicProcedure.input(z.object({ userId: z.number().int().positive(), ...pagination })).query(({ input }) => getUserRatings(input.userId, input.limit, input.offset)), userAverageRating: publicProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => getUserAverageRating(input.userId)), create: protectedProcedure.input(z.object({ targetUserId: z.number().int().positive(), listingId: z.number().int().positive().optional(), rating: z.number().int().min(1).max(5), comment: z.string().max(5000).optional() })).mutation(({ ctx, input }) => createRating(ctx.user.id, input)) }),
-  reports: router({ create: protectedProcedure.input(z.object({ reportedUserId: z.number().int().positive().optional(), listingId: z.number().int().positive().optional(), reason: z.string().trim().min(3).max(255), description: z.string().max(5000).optional() })).mutation(({ ctx, input }) => createReport(ctx.user.id, input)), list: adminProcedure.input(z.object(pagination)).query(({ input }) => listReports(input.limit, input.offset)), resolve: adminProcedure.input(z.object({ reportId: z.number().int().positive(), status: z.enum(["reviewed", "resolved", "dismissed"]), adminNotes: z.string().max(5000).optional() })).mutation(({ input }) => resolveReport(input.reportId, input.status, input.adminNotes)) }),
-  profiles: router({ author: publicProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => getAuthorProfile(input.userId)), library: publicProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => getLibraryProfile(input.userId)), publisher: publicProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => getPublisherProfile(input.userId)), updateAuthor: protectedProcedure.input(z.object({ website: z.string().url().optional(), bio: z.string().max(10000).optional(), socialLinks: z.record(z.string(), z.string()).optional() })).mutation(({ ctx, input }) => updateAuthorProfile(ctx.user.id, input)), updateLibrary: protectedProcedure.input(z.object({ libraryName: z.string().min(1).max(255).optional(), website: z.string().url().optional(), address: z.string().max(1000).optional(), phone: z.string().max(30).optional(), email: z.string().email().optional(), bio: z.string().max(10000).optional() })).mutation(({ ctx, input }) => updateLibraryProfile(ctx.user.id, input)), updatePublisher: protectedProcedure.input(z.object({ publisherName: z.string().min(1).max(255).optional(), website: z.string().url().optional(), address: z.string().max(1000).optional(), phone: z.string().max(30).optional(), email: z.string().email().optional(), bio: z.string().max(10000).optional() })).mutation(({ ctx, input }) => updatePublisherProfile(ctx.user.id, input)) }),
+  
+  categories: router({
+    list: protectedProcedure.query(({ ctx }) =>
+      getUserCategories(ctx.user.id)
+    ),
+    
+    create: protectedProcedure
+      .input((val: unknown) => {
+        if (
+          typeof val === "object" &&
+          val !== null &&
+          "name" in val &&
+          typeof (val as any).name === "string"
+        ) {
+          return val as { name: string; description?: string; color?: string };
+        }
+        throw new Error("Invalid input");
+      })
+      .mutation(({ ctx, input }) =>
+        createCategory({
+          userId: ctx.user.id,
+          ...input,
+        } as any)
+      ),
+  }),
+  
+  bookNotes: router({
+    get: protectedProcedure
+      .input((value: unknown) => {
+        if (Number.isInteger(value) && (value as number) > 0) {
+          return value as number;
+        }
+        throw new Error("Invalid book id");
+      })
+      .query(async ({ ctx, input }) => (await getBookNote(input, ctx.user.id)) ?? null),
+
+    upsert: protectedProcedure
+      .input(parseBookNoteInput)
+      .mutation(({ ctx, input }) =>
+        upsertBookNote({
+          userId: ctx.user.id,
+          bookId: input.bookId,
+          note: input.note,
+          personalRating: input.personalRating,
+        })
+      ),
+
+    delete: protectedProcedure
+      .input((value: unknown) => {
+        if (Number.isInteger(value) && (value as number) > 0) {
+          return value as number;
+        }
+        throw new Error("Invalid book id");
+      })
+      .mutation(async ({ ctx, input }) => {
+        await deleteBookNote(input, ctx.user.id);
+        return { success: true } as const;
+      }),
+  }),
+
+  stats: router({
+    get: protectedProcedure.query(({ ctx }) =>
+      getBookStatistics(ctx.user.id)
+    ),
+  }),
+
+  cover: router({
+    upload: protectedProcedure
+      .input(parseCoverUploadInput)
+      .mutation(async ({ ctx, input }) => {
+        const base64 = input.dataBase64.replace(/^data:[^;]+;base64,/, "");
+        const bytes = Buffer.from(base64, "base64");
+        if (bytes.length === 0 || bytes.length > 5 * 1024 * 1024) {
+          throw new Error("Cover file must be between 1 byte and 5 MB");
+        }
+        const uploaded = await storagePut(
+          `users/${ctx.user.id}/covers/${input.fileName}`,
+          bytes,
+          input.mimeType,
+        );
+        return {
+          ...uploaded,
+          mimeType: input.mimeType,
+          size: bytes.length,
+        };
+      }),
+  }),
+
+  exports: router({
+    library: protectedProcedure.query(({ ctx }) =>
+      getUserLibraryExport(ctx.user.id)
+    ),
+  }),
 });
+
 export type AppRouter = typeof appRouter;

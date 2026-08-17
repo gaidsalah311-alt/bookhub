@@ -1,9 +1,101 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "4aa8c74f-282a-439d-b17d-88960edf986d",
-  "prevId": "5e256d19-140e-4470-af9d-58398b27917a",
+  "id": "d2360fcd-f7ae-4eac-8c48-e6d5f672df4a",
+  "prevId": "4c855106-9dcd-4994-907c-4c0c8c4dfe11",
   "tables": {
+    "bookNotes": {
+      "name": "bookNotes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bookId": {
+          "name": "bookId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "personalRating": {
+          "name": "personalRating",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "bookNotesUserBookUnique": {
+          "name": "bookNotesUserBookUnique",
+          "columns": [
+            "userId",
+            "bookId"
+          ],
+          "isUnique": true
+        },
+        "bookNotesUserIdIdx": {
+          "name": "bookNotesUserIdIdx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "bookNotesBookIdIdx": {
+          "name": "bookNotesBookIdIdx",
+          "columns": [
+            "bookId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "bookNotes_id": {
+          "name": "bookNotes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "books": {
       "name": "books",
       "columns": {
@@ -75,6 +167,27 @@
         "coverImageUrl": {
           "name": "coverImageUrl",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverImageKey": {
+          "name": "coverImageKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverImageMimeType": {
+          "name": "coverImageMimeType",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coverImageSize": {
+          "name": "coverImageSize",
+          "type": "int",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
